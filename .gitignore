@@ -33,3 +33,16 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Arquivos de ambiente e segredos locais ###
+.env
+.env.local
+application-local.properties
+
+### Logs de execucao ###
+*.log
+
+### Backups e dumps locais ###
+*.dump
+*.sql.bak
+
