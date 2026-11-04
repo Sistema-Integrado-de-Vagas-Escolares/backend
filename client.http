@@ -1,0 +1,63 @@
+### 1. Cadastrar Escola
+POST http://localhost:8080/api/escolas
+Content-Type: application/json
+
+{
+  "nome": "EMEF Cecília Meireles",
+  "bairro": "Centro",
+  "cidade": "São Paulo",
+  "capacidadeTotal": 450
+}
+
+### 2. Listar Escolas
+GET http://localhost:8080/api/escolas
+
+### 3. Cadastrar Turma
+POST http://localhost:8080/api/turmas
+Content-Type: application/json
+
+{
+  "escolaId": "11111111-1111-1111-1111-111111111111",
+  "serieAno": "1º Ano Fundamental",
+  "turno": "MANHA",
+  "vagasTotais": 30,
+  "vagasDisponiveis": 5
+}
+
+### 4. Cadastrar Responsável
+POST http://localhost:8080/api/responsaveis
+Content-Type: application/json
+
+{
+  "nome": "Maria Silva",
+  "cpf": "123.456.789-00",
+  "telefone": "(11) 98765-4321",
+  "rendaFamiliar": 1400.00
+}
+
+### 5. Cadastrar Aluno
+POST http://localhost:8080/api/alunos
+Content-Type: application/json
+
+{
+  "responsavelId": "22222222-2222-2222-2222-222222222222",
+  "nome": "Lucas Silva",
+  "dataNascimento": "2020-05-15",
+  "certidaoNascimento": "123456.01.55.2020.1.00001.001.0000001-00",
+  "temNecessidadeEspecial": false
+}
+
+### 6. Criar Inscrição na Fila
+POST http://localhost:8080/api/inscricoes
+Content-Type: application/json
+
+{
+  "alunoId": "33333333-3333-3333-3333-333333333333",
+  "turmaId": "44444444-4444-4444-4444-444444444444"
+}
+
+### 7. Consultar Inscrição por Protocolo
+GET http://localhost:8080/api/inscricoes/protocolo/2026-0001
+
+### 8. Listar Fila Ordenada da Turma
+GET http://localhost:8080/api/turmas/44444444-4444-4444-4444-444444444444/fila
