@@ -249,3 +249,66 @@ mvn spring-boot:run
 ```
 
 A API estará disponível em: `http://localhost:8080`
+
+---
+
+## 7. Checklist de Implementação (Roadmap do MVP)
+
+Abaixo está o status atual de implementação das funcionalidades do backend:
+
+### 1. Infraestrutura e Banco de Dados
+- [x] Container Docker com PostgreSQL 16 (`docker-compose.yml`)
+- [x] Script DDL relacional com 8 tabelas normalizadas (`sql/schema.sql`)
+- [x] Suporte ao relacionamento N:N entre Alunos e Responsáveis (`aluno_responsaveis`)
+- [x] Seeds com critérios iniciais de pontuação
+- [x] Gerenciador de conexão JDBC nativa (`com.sive.dao.Conexao`)
+- [x] Configuração limpa do Maven (Java 17, Spring Web, Driver PostgreSQL, sem Lombok e sem JPA)
+- [x] Regras de desenvolvimento e governança do agente (`SKILL.md` e `GEMINI.md`)
+
+### 2. Módulo de Escolas (`escolas`)
+- [x] Modelo POJO `Escola.java`
+- [x] DAO JDBC `EscolaDAO.java` (`inserir`, `listar`, `buscarPorId`)
+- [x] Serviço com regras e validações `EscolaService.java`
+- [x] Controlador REST `EscolaController.java` (`POST /api/escolas`, `GET /api/escolas`, `GET /api/escolas/{id}`)
+
+### 3. Módulo de Turmas (`turmas`)
+- [ ] Enum `Turno.java` (`MANHA`, `TARDE`, `INTEGRAL`)
+- [ ] Modelo POJO `Turma.java`
+- [ ] DAO JDBC `TurmaDAO.java` (`inserir`, `listarPorEscola`, `buscarPorId`, `atualizarSaldoVagas`)
+- [ ] Serviço `TurmaService.java` (controle de capacidade e reserva de vagas)
+- [ ] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{id}/turmas`)
+
+### 4. Módulo de Responsáveis e Alunos (`responsaveis`, `alunos`, `aluno_responsaveis`)
+- [ ] Superclasse abstrata `Pessoa.java` (encapsulando atributos comuns para demonstrar herança em POO)
+- [ ] Modelo POJO `Responsavel.java` (subclasse de `Pessoa`, com renda familiar e telefone)
+- [ ] Modelo POJO `Aluno.java` (subclasse de `Pessoa`, com certidão e necessidades especiais)
+- [ ] Modelo POJO `AlunoResponsavel.java` (tabela de junção com parentesco e indicador de contato principal)
+- [ ] DAOs JDBC `ResponsavelDAO.java`, `AlunoDAO.java` e `AlunoResponsavelDAO.java`
+- [ ] Serviços `ResponsavelService.java` e `AlunoService.java`
+- [ ] Controladores REST `ResponsavelController.java` e `AlunoController.java`
+
+### 5. Padrão de Projeto Strategy (`strategy`)
+- [ ] Interface `CriterioPontuacaoStrategy.java`
+- [ ] Implementação `CriterioRendaStrategy.java` (pontuação por faixa de renda per capita)
+- [ ] Implementação `CriterioProximidadeStrategy.java` (pontuação por distância física da residência)
+- [ ] Implementação `CriterioIrmaoStrategy.java` (bônus por irmão matriculado na mesma unidade)
+- [ ] Implementação `CriterioPcdStrategy.java` (prioridade legal para candidatos com deficiência)
+- [ ] Fábrica de estratégias `CriterioStrategyFactory.java` utilizando *switch expressions*
+
+### 6. Módulo de Inscrições e Fila de Espera (`inscricoes`, `inscricao_criterios`)
+- [ ] Enum `StatusInscricao.java` (`EM_ESPERA`, `CHAMADO`, `MATRICULADO`, `CANCELADO`, `EXPIRADO`)
+- [ ] Modelo POJO `Inscricao.java` e `InscricaoCriterio.java`
+- [ ] DAO JDBC `InscricaoDAO.java` (cadastro, busca por protocolo, listagem da fila ordenada, atualização de status e posições)
+- [ ] Serviço `InscricaoService.java` (orquestração do cálculo polimórfico de pontos via Strategy, geração de protocolo e transições de status)
+- [ ] Controlador REST `InscricaoController.java` (`POST /api/inscricoes`, `GET /api/inscricoes/protocolo/{protocolo}`, `GET /api/turmas/{turmaId}/fila`)
+
+### 7. Concorrência e Threads (`tarefa`)
+- [ ] Tarefa concorrente `TarefaRecalcularFila.java` (`Runnable`, com `Thread.currentThread().getName()` e `Thread.sleep()`)
+- [ ] Tarefa concorrente `TarefaCalcularEstatisticas.java` (`Runnable`, agregando dados da rede)
+- [ ] Tarefa concorrente `TarefaNotificarChamada.java` (`Runnable`, simulando envio de avisos)
+- [ ] Proteção contra *race conditions* com métodos/blocos `synchronized` no preenchimento de vagas (`TurmaService.alocarVaga()`)
+- [ ] Endpoint para acionamento do recálculo concorrente (`POST /api/turmas/{turmaId}/recalcular`)
+
+### 8. Tratamento Centralizado de Exceções (`exception`)
+- [ ] Hierarquia de exceções de domínio (`SiveException`, `VagaIndisponivelException`, `AlunoJaInscritoException`, `InscricaoNaoEncontradaException`, `StatusInvalidoException`)
+- [ ] Controlador de captura global `GlobalExceptionHandler.java` com `@RestControllerAdvice` (retornos formatados em JSON com status HTTP 400, 404, 409)
