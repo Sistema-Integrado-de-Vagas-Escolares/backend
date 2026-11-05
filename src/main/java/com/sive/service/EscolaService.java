@@ -9,7 +9,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Camada de servico responsavel pelas regras de negocio e validacoes da entidade Escola.
+ * Camada de servico responsavel pelas regras de negocio e validacoes da
+ * entidade Escola.
  */
 @Service
 public class EscolaService {
@@ -25,16 +26,16 @@ public class EscolaService {
      */
     public Escola cadastrar(Escola escola) throws SQLException {
         if (escola == null) {
-            throw new IllegalArgumentException("Os dados da escola nao podem ser nulos.");
+            throw new IllegalArgumentException("Os dados da escola não podem ser nulos.");
         }
         if (escola.getNome() == null || escola.getNome().trim().isEmpty()) {
-            throw new IllegalArgumentException("O nome da escola e obrigatorio.");
+            throw new IllegalArgumentException("O nome da escola é obrigatório.");
         }
         if (escola.getBairro() == null || escola.getBairro().trim().isEmpty()) {
-            throw new IllegalArgumentException("O bairro da escola e obrigatorio.");
+            throw new IllegalArgumentException("O bairro da escola é obrigatório.");
         }
         if (escola.getCidade() == null || escola.getCidade().trim().isEmpty()) {
-            throw new IllegalArgumentException("A cidade da escola e obrigatoria.");
+            throw new IllegalArgumentException("A cidade da escola é obrigatória.");
         }
         if (escola.getCapacidadeTotal() <= 0) {
             throw new IllegalArgumentException("A capacidade total deve ser maior que zero.");
@@ -55,7 +56,7 @@ public class EscolaService {
      */
     public Escola buscarPorId(UUID id) throws SQLException {
         if (id == null) {
-            throw new IllegalArgumentException("O ID da escola nao pode ser nulo.");
+            throw new IllegalArgumentException("O ID da escola não pode ser nulo.");
         }
         return escolaDAO.buscarPorId(id);
     }

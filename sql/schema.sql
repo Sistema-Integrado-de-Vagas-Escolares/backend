@@ -1,6 +1,6 @@
 -- =============================================================================
 -- SIVE — Sistema Integrado de Vagas Escolares (Backend MVP)
--- Schema DDL para PostgreSQL 16
+-- Schema DDL para PostgreSQL 16 (Suporte a N:N Aluno - Responsaveis)
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS responsaveis (
 -- 4. Tabela de Alunos
 CREATE TABLE IF NOT EXISTS alunos (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    responsavel_id UUID NOT NULL REFERENCES responsaveis(id) ON DELETE CASCADE,
     nome VARCHAR(150) NOT NULL,
     data_nascimento DATE NOT NULL,
     certidao_nascimento VARCHAR(50) NOT NULL,
@@ -48,7 +47,19 @@ CREATE TABLE IF NOT EXISTS alunos (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Tabela de Critérios de Pontuação
+-- 5. Tabela Associativa Aluno - Responsáveis (N:N)
+CREATE TABLE IF NOT EXISTS aluno_responsaveis (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    aluno_id UUID NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
+    responsavel_id UUID NOT NULL REFERENCES responsaveis(id) ON DELETE CASCADE,
+    parentesco VARCHAR(30) NOT NULL DEFAULT 'MAE' 
+        CHECK (parentesco IN ('MAE', 'PAI', 'AVOS', 'TUTOR_LEGAL', 'OUTRO')),
+    is_contato_principal BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_aluno_responsavel UNIQUE (aluno_id, responsavel_id)
+);
+
+-- 6. Tabela de Critérios de Pontuação
 CREATE TABLE IF NOT EXISTS criterios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(100) NOT NULL UNIQUE,
@@ -57,7 +68,7 @@ CREATE TABLE IF NOT EXISTS criterios (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Tabela de Inscrições na Fila de Espera
+-- 7. Tabela de Inscrições na Fila de Espera
 CREATE TABLE IF NOT EXISTS inscricoes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     aluno_id UUID NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
@@ -73,7 +84,7 @@ CREATE TABLE IF NOT EXISTS inscricoes (
     CONSTRAINT uk_aluno_turma UNIQUE (aluno_id, turma_id)
 );
 
--- 7. Tabela de Detalhamento dos Critérios da Inscrição (N:N com nota)
+-- 8. Tabela de Detalhamento dos Critérios da Inscrição (N:N com nota)
 CREATE TABLE IF NOT EXISTS inscricao_criterios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     inscricao_id UUID NOT NULL REFERENCES inscricoes(id) ON DELETE CASCADE,
@@ -92,4 +103,3 @@ INSERT INTO criterios (nome, pontos_base, categoria) VALUES
     ('Irmão Matriculado na Mesma Escola', 20.00, 'FAMILIAR'),
     ('Proximidade Residencial (< 1 km)', 10.00, 'GEOGRAFICO')
 ON CONFLICT (nome) DO NOTHING;
-

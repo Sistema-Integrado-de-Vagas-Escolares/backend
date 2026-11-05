@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Data Access Object (DAO) para a entidade Escola utilizando JDBC puro.
+ * Data Access Object (DAO) para a entidade Escola utilizando JDBC.
  */
 public class EscolaDAO {
 
@@ -26,7 +26,7 @@ public class EscolaDAO {
         }
 
         try (Connection conn = Conexao.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setObject(1, escola.getId());
             stmt.setString(2, escola.getNome());
@@ -47,8 +47,8 @@ public class EscolaDAO {
         String sql = "SELECT id, nome, bairro, cidade, capacidade_total FROM escolas ORDER BY nome ASC";
 
         try (Connection conn = Conexao.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
                 Escola escola = new Escola(
@@ -56,8 +56,7 @@ public class EscolaDAO {
                         rs.getString("nome"),
                         rs.getString("bairro"),
                         rs.getString("cidade"),
-                        rs.getInt("capacidade_total")
-                );
+                        rs.getInt("capacidade_total"));
                 escolas.add(escola);
             }
         }
@@ -71,7 +70,7 @@ public class EscolaDAO {
         String sql = "SELECT id, nome, bairro, cidade, capacidade_total FROM escolas WHERE id = ?";
 
         try (Connection conn = Conexao.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setObject(1, id);
 
@@ -82,8 +81,7 @@ public class EscolaDAO {
                             rs.getString("nome"),
                             rs.getString("bairro"),
                             rs.getString("cidade"),
-                            rs.getInt("capacidade_total")
-                    );
+                            rs.getInt("capacidade_total"));
                 }
             }
         }

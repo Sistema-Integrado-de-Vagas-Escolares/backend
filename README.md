@@ -115,12 +115,13 @@ backend/
 
 ## 4. Modelagem do Banco de Dados
 
-O banco relacional é composto por 7 tabelas normalizadas:
+O banco relacional é composto por 8 tabelas normalizadas com suporte completo a múltiplos responsáveis por aluno (N:N):
 
 ```mermaid
 erDiagram
     ESCOLAS ||--o{ TURMAS : "oferta"
-    RESPONSAVEIS ||--o{ ALUNOS : "possui"
+    ALUNOS ||--o{ ALUNO_RESPONSAVEIS : "possui"
+    RESPONSAVEIS ||--o{ ALUNO_RESPONSAVEIS : "vincula-se"
     ALUNOS ||--o{ INSCRICOES : "candidata-se"
     TURMAS ||--o{ INSCRICOES : "recebe"
     INSCRICOES ||--o{ INSCRICAO_CRITERIOS : "detalha"
@@ -153,11 +154,18 @@ erDiagram
 
     ALUNOS {
         uuid id PK
-        uuid responsavel_id FK
         varchar nome
         date data_nascimento
         varchar certidao_nascimento
         boolean tem_necessidade_especial
+    }
+
+    ALUNO_RESPONSAVEIS {
+        uuid id PK
+        uuid aluno_id FK
+        uuid responsavel_id FK
+        varchar parentesco "MAE | PAI | AVOS | TUTOR_LEGAL | OUTRO"
+        boolean is_contato_principal
     }
 
     INSCRICOES {
@@ -191,7 +199,8 @@ erDiagram
 - **`escolas`**: Representa as unidades escolares com capacidade total de alunos.
 - **`turmas`**: Agrupamento por série/ano e turno, controlando a quantidade de vagas totais e disponíveis.
 - **`responsaveis`**: Dados cadastrais e renda familiar per capita dos responsáveis legais.
-- **`alunos`**: Crianças dependentes vinculadas ao responsável, com certidão de nascimento e necessidades especiais.
+- **`alunos`**: Crianças dependentes com certidão de nascimento e registro de necessidades especiais.
+- **`aluno_responsaveis`**: Associação N:N entre alunos e seus múltiplos responsáveis legais, registrando parentesco (Mãe, Pai, Tutor) e contato prioritário.
 - **`criterios`**: Tabela de regras de pontuação ativas (faixa de renda, proximidade, irmãos).
 - **`inscricoes`**: Representa a posição do candidato na fila de uma turma, seu protocolo único, status e pontuação.
 - **`inscricao_criterios`**: Associação que registra os critérios atendidos e os pontos obtidos em cada inscrição.
@@ -236,7 +245,7 @@ O banco criará a base `sive_db` na porta padrão `5432` e executará automatica
 ### 2. Executar a Aplicação
 Execute o projeto utilizando o Maven Wrapper:
 ```bash
-./mvnw spring-boot:run
+mvn spring-boot:run
 ```
 
 A API estará disponível em: `http://localhost:8080`
