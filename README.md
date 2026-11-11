@@ -284,8 +284,8 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 ### 👤 Trilha A — Giselle: Gestão de Capacidade, Turmas e Concorrência
 
 #### 3.1 Módulo de Turmas (`turmas`)
-- [ ] Enum `Turno.java` (`MANHA`, `TARDE`, `INTEGRAL`)
-- [ ] Modelo POJO `Turma.java`
+- [x] Enum `Turno.java` (`MANHA`, `TARDE`, `INTEGRAL`)
+- [x] Modelo POJO `Turma.java`
 - [ ] DAO JDBC `TurmaDAO.java` (`inserir`, `listarPorEscola`, `buscarPorId`, `atualizarSaldoVagas`)
 - [ ] Serviço `TurmaService.java` (controle de capacidade, reserva de vagas com `synchronized` contra *race conditions*)
 - [ ] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{id}/turmas`)
