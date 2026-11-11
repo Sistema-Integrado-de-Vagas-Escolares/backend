@@ -1,5 +1,5 @@
 package com.sive.model;
 
 public enum Turno {
-    MANHA, TARDE, NOITE
+    MANHA, TARDE, INTEGRAL
 }
