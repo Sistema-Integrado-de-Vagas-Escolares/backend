@@ -86,4 +86,51 @@ public class TurmaDao {
         }
         return turmas;
     }
+
+    /**
+     * Busca uma turma pelo seu identificador unico (UUID).
+     */
+    public Turma buscarPorId(UUID id) throws SQLException {
+        String sql = "SELECT id, escola_id, serie_ano, turno, vagas_totais, vagas_disponiveis, created_at FROM escolas WHERE id = ?";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, id);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    String turnoStr = rs.getString("turno");
+                    Turno turno = turnoStr != null ? Turno.valueOf(turnoStr) : null;
+
+                    Timestamp createdAt = rs.getTimestamp("created_at");
+                    LocalDateTime dataCriacao = createdAt != null ? createdAt.toLocalDateTime() : null;
+
+                    return new Turma(
+                            (UUID) rs.getObject("id"),
+                            (UUID) rs.getObject("escola_id"),
+                            rs.getString("serie_ano"),
+                            turno,
+                            rs.getInt("vagas_totais"),
+                            rs.getInt("vagas_disponiveis"),
+                            dataCriacao);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Atualiza o saldo de vagas de uma turma.
+     */
+    public void atualizarSaldoVagas(UUID id, int quantidade) throws SQLException {
+        String sql = "UPDATE turmas SET vagas_disponiveis = vagas_disponiveis + ? WHERE id = ?";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, quantidade);
+            stmt.setObject(2, id);
+            stmt.executeUpdate();
+        }
+    }
 }
