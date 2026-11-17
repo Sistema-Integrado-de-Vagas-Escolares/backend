@@ -304,9 +304,9 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 - [x] Modelo POJO `Responsavel.java` (subclasse de `Pessoa`, com renda familiar e telefone)
 - [x] Modelo POJO `Aluno.java` (subclasse de `Pessoa`, com certidão e necessidades especiais)
 - [x] Modelo POJO `AlunoResponsavel.java` (associação com parentesco e contato principal)
-- [ ] DAOs JDBC `ResponsavelDAO.java`, `AlunoDAO.java` e `AlunoResponsavelDAO.java`
-- [ ] Serviços `ResponsavelService.java` e `AlunoService.java`
-- [ ] Controladores REST `ResponsavelController.java` e `AlunoController.java`
+- [x] DAOs JDBC `ResponsavelDAO.java`, `AlunoDAO.java` e `AlunoResponsavelDAO.java`
+- [x] Serviços `ResponsavelService.java` e `AlunoService.java`
+- [x] Controladores REST `ResponsavelController.java` e `AlunoController.java`
 
 #### 4.2 Motor de Pontuação Strategy (`strategy`)
 - [ ] Interface `CriterioPontuacaoStrategy.java` (`double calcularPontos(Inscricao inscricao)`)
