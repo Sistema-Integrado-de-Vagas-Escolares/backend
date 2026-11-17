@@ -12,6 +12,17 @@ public class Turma {
     private int vagasDisponiveis;
     private LocalDateTime dataCriacao;
 
+    public Turma() {
+    }
+
+    public Turma(UUID escolaId, String serieAno, Turno turno, int vagasTotais, int vagasDisponiveis) {
+        this.escolaId = escolaId;
+        this.serieAno = serieAno;
+        this.turno = turno;
+        this.vagasTotais = vagasTotais;
+        this.vagasDisponiveis = vagasDisponiveis;
+    }
+
     public Turma(UUID id, UUID escolaId, String serieAno, Turno turno, int vagasTotais, int vagasDisponiveis,
             LocalDateTime dataCriacao) {
         this.id = id;
@@ -77,6 +88,19 @@ public class Turma {
 
     public void setDataCriacao(LocalDateTime dataCriacao) {
         this.dataCriacao = dataCriacao;
+    }
+
+    @Override
+    public String toString() {
+        return "Turma{" +
+                "id=" + id +
+                ", escolaId=" + escolaId +
+                ", serieAno='" + serieAno + '\'' +
+                ", turno=" + turno +
+                ", vagasTotais=" + vagasTotais +
+                ", vagasDisponiveis=" + vagasDisponiveis +
+                ", dataCriacao=" + dataCriacao +
+                '}';
     }
 
 }
