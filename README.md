@@ -300,10 +300,10 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 ### 👤 Trilha B — Maria: Domínio Cidadão e Motor de Pontuação
 
 #### 4.1 Módulo de Responsáveis e Alunos (`responsaveis`, `alunos`, `aluno_responsaveis`)
-- [ ] Superclasse abstrata `Pessoa.java` (herança e atributos comuns como nome, id)
-- [ ] Modelo POJO `Responsavel.java` (subclasse de `Pessoa`, com renda familiar e telefone)
-- [ ] Modelo POJO `Aluno.java` (subclasse de `Pessoa`, com certidão e necessidades especiais)
-- [ ] Modelo POJO `AlunoResponsavel.java` (associação com parentesco e contato principal)
+- [x] Superclasse abstrata `Pessoa.java` (herança e atributos comuns como nome, id)
+- [x] Modelo POJO `Responsavel.java` (subclasse de `Pessoa`, com renda familiar e telefone)
+- [x] Modelo POJO `Aluno.java` (subclasse de `Pessoa`, com certidão e necessidades especiais)
+- [x] Modelo POJO `AlunoResponsavel.java` (associação com parentesco e contato principal)
 - [ ] DAOs JDBC `ResponsavelDAO.java`, `AlunoDAO.java` e `AlunoResponsavelDAO.java`
 - [ ] Serviços `ResponsavelService.java` e `AlunoService.java`
 - [ ] Controladores REST `ResponsavelController.java` e `AlunoController.java`
