@@ -2,14 +2,6 @@ package com.sive.model;
 
 import java.util.UUID;
 
-/**
- * Entidade de dominio que representa a associacao N:N entre um {@link Aluno}
- * e um {@link Responsavel} legal.
- *
- * <p>Mapeada para a tabela {@code aluno_responsaveis} no banco de dados.
- * Registra o grau de parentesco e indica qual responsavel e o contato
- * prioritario para o aluno.</p>
- */
 public class AlunoResponsavel {
 
     private UUID id;
@@ -18,20 +10,9 @@ public class AlunoResponsavel {
     private Parentesco parentesco;
     private boolean contatoPrincipal;
 
-    /**
-     * Construtor padrao necessario para frameworks de serializacao (Jackson).
-     */
     public AlunoResponsavel() {
     }
 
-    /**
-     * Construtor para novos vinculos (sem ID gerado previamente).
-     *
-     * @param alunoId          UUID do aluno vinculado.
-     * @param responsavelId    UUID do responsavel legal vinculado.
-     * @param parentesco       Grau de parentesco entre aluno e responsavel.
-     * @param contatoPrincipal Indica se este responsavel e o contato prioritario.
-     */
     public AlunoResponsavel(UUID alunoId, UUID responsavelId, Parentesco parentesco,
             boolean contatoPrincipal) {
         this.alunoId = alunoId;
@@ -40,15 +21,6 @@ public class AlunoResponsavel {
         this.contatoPrincipal = contatoPrincipal;
     }
 
-    /**
-     * Construtor completo para vinculos ja persistidos no banco de dados.
-     *
-     * @param id               Identificador unico (UUID) do vinculo.
-     * @param alunoId          UUID do aluno vinculado.
-     * @param responsavelId    UUID do responsavel legal vinculado.
-     * @param parentesco       Grau de parentesco entre aluno e responsavel.
-     * @param contatoPrincipal Indica se este responsavel e o contato prioritario.
-     */
     public AlunoResponsavel(UUID id, UUID alunoId, UUID responsavelId, Parentesco parentesco,
             boolean contatoPrincipal) {
         this.id = id;
@@ -57,10 +29,6 @@ public class AlunoResponsavel {
         this.parentesco = parentesco;
         this.contatoPrincipal = contatoPrincipal;
     }
-
-    // -------------------------------------------------------------------------
-    // Getters e Setters
-    // -------------------------------------------------------------------------
 
     public UUID getId() {
         return id;
@@ -102,10 +70,6 @@ public class AlunoResponsavel {
         this.contatoPrincipal = contatoPrincipal;
     }
 
-    // -------------------------------------------------------------------------
-    // toString
-    // -------------------------------------------------------------------------
-
     @Override
     public String toString() {
         return "AlunoResponsavel{" +
@@ -117,4 +81,3 @@ public class AlunoResponsavel {
                 '}';
     }
 }
-
