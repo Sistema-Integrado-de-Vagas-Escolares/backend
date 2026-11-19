@@ -287,9 +287,11 @@ A API estará disponível em: `http://localhost:8080`
 
 ### 🧪 Instruções de Teste das Rotas da API
 
-#### 1. Usando a extensão REST Client do VS Code / IDE
-O projeto possui um arquivo de teste completo em [`backend/client.http`](file:///c:/Users/cg3047172/Documents/sive/backend/client.http).
-Basta abrir o arquivo e clicar em **"Send Request"** sobre cada requisição para testar os fluxos sequencialmente.
+#### 1. Usando a extensão REST Client no VS Code (Recomendado)
+Para testar interativamente dentro do editor:
+1. Instale a extensão oficial **[REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)** (`humao.rest-client`) no VS Code.
+2. Abra o arquivo de testes [`client.http`](./client.http) na raiz da pasta `backend/`.
+3. Clique no botão **"Send Request"** que aparece diretamente acima de cada requisição HTTP para executá-la e visualizar a resposta JSON ao lado.
 
 #### 2. Testando via cURL / Terminal
 
