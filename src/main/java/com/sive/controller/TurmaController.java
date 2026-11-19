@@ -80,4 +80,21 @@ public class TurmaController {
                     .body("Erro ao consultar turma no banco de dados: " + e.getMessage());
         }
     }
+
+    /**
+     * Dispara o recálculo concorrente da fila de espera da turma via Thread.
+     * POST /api/turmas/{turmaId}/recalcular
+     */
+    @PostMapping("/turmas/{turmaId}/recalcular")
+    public ResponseEntity<?> recalcularFila(@PathVariable UUID turmaId) {
+        try {
+            turmaService.recalcularFilaAssincrono(turmaId);
+            return ResponseEntity.accepted().body("{\"mensagem\": \"Recálculo da fila iniciado em segundo plano com sucesso.\", \"turmaId\": \"" + turmaId + "\"}");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (SQLException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erro ao disparar recálculo da fila: " + e.getMessage());
+        }
+    }
 }

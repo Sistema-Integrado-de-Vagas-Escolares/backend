@@ -7,7 +7,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /**
- * Gerenciador de conexao JDBC com o banco de dados PostgreSQL.
+ * Gerenciador de conexão JDBC com o banco de dados PostgreSQL.
  * Suporta configurações locais e variáveis de ambiente de nuvem (Fly.io).
  */
 public final class Conexao {

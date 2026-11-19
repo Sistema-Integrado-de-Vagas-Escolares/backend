@@ -377,8 +377,8 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 
 #### 3.2 Concorrência e Tarefas em Background (`tarefa`)
 - [x] Tarefa concorrente `TarefaCalcularEstatisticas.java` (`Runnable`, agregando dados da rede)
-- [ ] Tarefa concorrente `TarefaNotificarChamada.java` (`Runnable`, simulando envio de avisos)
-- [ ] Endpoint de recálculo concorrente da turma `POST /api/turmas/{turmaId}/recalcular`
+- [x] Tarefa concorrente `TarefaNotificarChamada.java` (`Runnable`, simulando envio de avisos)
+- [x] Controlador REST de recálculo concorrente da turma `POST /api/turmas/{turmaId}/recalcular`
 
 ---
 

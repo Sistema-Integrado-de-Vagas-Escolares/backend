@@ -11,6 +11,7 @@ import com.sive.dao.TurmaDao;
 import com.sive.exception.VagaIndisponivelException;
 import com.sive.model.Escola;
 import com.sive.model.Turma;
+import com.sive.tarefa.TarefaRecalcularFila;
 
 /**
  * Camada de serviço responsável pelas regras de negócio e validações da
@@ -97,6 +98,21 @@ public class TurmaService {
             throw new IllegalArgumentException("O id da turma não pode ser nulo.");
         }
         return turmaDao.buscarPorId(id);
+    }
+
+    /**
+     * Dispara o recalculado concorrente da fila de espera de uma turma em uma
+     * Thread separada.
+     */
+    public void recalcularFilaAssincrono(UUID turmaId) throws SQLException {
+        Turma turma = buscarPorId(turmaId);
+        if (turma == null) {
+            throw new IllegalArgumentException("Turma não encontrada para o id informado: " + turmaId);
+        }
+
+        TarefaRecalcularFila tarefa = new TarefaRecalcularFila(turmaId);
+        Thread thread = new Thread(tarefa, "Thread-RecalcularFila-" + turmaId.toString().substring(0, 8));
+        thread.start();
     }
 
     /**

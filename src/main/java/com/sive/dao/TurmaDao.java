@@ -52,7 +52,7 @@ public class TurmaDao {
     }
 
     /**
-     * Retorna a lista de todas as turmas de uma escola ordenadas por serie/ano.
+     * Retorna a lista de todas as turmas de uma escola ordenadas por série/ano.
      */
     public List<Turma> listarPorEscola(UUID escolaId) throws SQLException {
         List<Turma> turmas = new ArrayList<>();
@@ -88,7 +88,7 @@ public class TurmaDao {
     }
 
     /**
-     * Busca uma turma pelo seu identificador unico (UUID).
+     * Busca uma turma pelo seu identificador único (UUID).
      */
     public Turma buscarPorId(UUID id) throws SQLException {
         String sql = "SELECT id, escola_id, serie_ano, turno, vagas_totais, vagas_disponiveis, created_at FROM turmas WHERE id = ?";
@@ -121,7 +121,7 @@ public class TurmaDao {
     }
 
     /**
-     * Atualiza o saldo de vagas disponiveis de uma turma para um valor especifico.
+     * Atualiza o saldo de vagas disponíveis de uma turma para um valor específico.
      */
     public void atualizarSaldoVagas(UUID id, int novoSaldo) throws SQLException {
         String sql = "UPDATE turmas SET vagas_disponiveis = ? WHERE id = ?";

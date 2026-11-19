@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Controlador REST para operacoes relacionadas as escolas.
+ * Controlador REST para operações relacionadas às escolas.
  */
 @RestController
 @RequestMapping("/api/escolas")
@@ -56,7 +56,7 @@ public class EscolaController {
     }
 
     /**
-     * Rota para buscar uma escola especifica por ID.
+     * Rota para buscar uma escola específica por ID.
      * GET /api/escolas/{id}
      */
     @GetMapping("/{id}")
@@ -65,7 +65,7 @@ public class EscolaController {
             Escola escola = escolaService.buscarPorId(id);
             if (escola == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Escola nao encontrada para o ID informado.");
+                        .body("Escola não encontrada para o ID informado.");
             }
             return ResponseEntity.ok(escola);
         } catch (IllegalArgumentException e) {

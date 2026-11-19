@@ -64,7 +64,7 @@ public class EscolaDAO {
     }
 
     /**
-     * Busca uma escola pelo seu identificador unico (UUID).
+     * Busca uma escola pelo seu identificador único (UUID).
      */
     public Escola buscarPorId(UUID id) throws SQLException {
         String sql = "SELECT id, nome, bairro, cidade, capacidade_total FROM escolas WHERE id = ?";

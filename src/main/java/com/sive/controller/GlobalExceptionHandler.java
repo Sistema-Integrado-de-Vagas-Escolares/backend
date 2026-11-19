@@ -16,7 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Interceptador global para tratamento centralizado de excecoes na API REST.
+ * Interceptador global para tratamento centralizado de exceções na API REST.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
