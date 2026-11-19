@@ -52,13 +52,17 @@ Regras de negócio violadas lançam exceções customizadas do pacote `exception
 
 ```text
 backend/
-├── docker-compose.yml              # Orquestração do PostgreSQL
+├── Dockerfile                      # Build multi-stage para containerização e deploy
+├── docker-compose.yml              # Orquestração do PostgreSQL e Backend
+├── fly.toml                        # Configuração de deploy em nuvem (Fly.io)
+├── .dockerignore                   # Otimização de build do Docker
 ├── pom.xml                         # Dependências do projeto Maven
 ├── README.md                       # Documentação técnica do projeto
+├── client.http                     # Script de testes manuais via extensão REST Client
 ├── sql/
-│   └── schema.sql                  # Script DDL com a estrutura das tabelas
+│   └── schema.sql                  # Script DDL com a estrutura das 8 tabelas e seeds
 └── src/main/java/com/sive/
-    ├── SiveApplication.java        # Inicializador da aplicação
+    ├── SiveApplication.java        # Inicializador da aplicação Spring Boot
     │
     ├── controller/                 # Controladores REST da API
     │   ├── EscolaController.java
@@ -68,8 +72,9 @@ backend/
     │   └── GlobalExceptionHandler.java
     │
     ├── service/                    # Regras de negócio e coordenação de fluxo
-    │   ├── InscricaoService.java
+    │   ├── EscolaService.java
     │   ├── TurmaService.java
+    │   ├── InscricaoService.java
     │   └── FilaService.java
     │
     ├── strategy/                   # Implementações do padrão Strategy
@@ -88,22 +93,24 @@ backend/
     ├── dao/                        # Acesso a dados via JDBC nativo
     │   ├── Conexao.java
     │   ├── EscolaDAO.java
-    │   ├── TurmaDAO.java
+    │   ├── TurmaDao.java
+    │   ├── EstatisticasDAO.java
     │   ├── ResponsavelDAO.java
     │   ├── AlunoDAO.java
     │   └── InscricaoDAO.java
     │
-    ├── model/                      # Classes de domínio
-    │   ├── Pessoa.java             # Superclasse com atributos comuns
+    ├── model/                      # Classes de domínio e DTOs
+    │   ├── Pessoa.java             # Superclasse abstrata com atributos comuns
     │   ├── Responsavel.java        # Dados cadastrais do responsável legal
     │   ├── Aluno.java              # Dados da criança/estudante
     │   ├── Escola.java             # Unidade escolar
     │   ├── Turma.java              # Turma, turno e saldo de vagas
+    │   ├── Turno.java              # Enum: MANHA, TARDE, INTEGRAL
+    │   ├── EstatisticasRede.java   # DTO agregador de estatísticas da rede
     │   ├── Inscricao.java          # Inscrição na fila de espera
-    │   ├── StatusInscricao.java    # Enum: EM_ESPERA, CHAMADO, MATRICULADO, etc.
-    │   └── Turno.java              # Enum: MANHA, TARDE, INTEGRAL
+    │   └── StatusInscricao.java    # Enum: EM_ESPERA, CHAMADO, MATRICULADO, etc.
     │
-    └── exception/                  # Exceções de negócio
+    └── exception/                  # Exceções de negócio e domínio
         ├── SiveException.java
         ├── VagaIndisponivelException.java
         ├── AlunoJaInscritoException.java
@@ -215,14 +222,16 @@ Todas as rotas retornam e recebem cargas úteis no formato `application/json`.
 | :--- | :--- | :--- |
 | `GET` | `/api/escolas` | Lista todas as escolas cadastradas |
 | `POST` | `/api/escolas` | Cadastra uma nova escola |
+| `GET` | `/api/escolas/{id}` | Consulta detalhes de uma escola específica por ID |
 | `GET` | `/api/escolas/{id}/turmas` | Lista as turmas e o saldo de vagas de uma escola |
-| `POST` | `/api/turmas` | Cadastra uma nova turma com capacidade inicial de vagas |
+| `POST` | `/api/turmas` | Cadastra uma nova turma validando capacidade da escola |
+| `GET` | `/api/turmas/{id}` | Consulta detalhes e saldo atual de vagas de uma turma |
+| `POST` | `/api/turmas/{turmaId}/recalcular` | Dispara o recálculo concorrente da fila via Threads |
 | `POST` | `/api/responsaveis` | Cadastra um responsável legal |
 | `POST` | `/api/alunos` | Cadastra um aluno vinculado a um responsável |
 | `POST` | `/api/inscricoes` | Cria uma solicitação de vaga para o aluno em uma turma |
 | `GET` | `/api/inscricoes/protocolo/{protocolo}` | Consulta pública de status e posição na fila por protocolo |
 | `GET` | `/api/turmas/{turmaId}/fila` | Retorna a fila de espera da turma ordenada por pontuação |
-| `POST` | `/api/turmas/{turmaId}/recalcular` | Dispara o recálculo concorrente da fila via Threads |
 | `POST` | `/api/inscricoes/{id}/convocar` | Convoca o candidato para apresentação de documentos |
 | `POST` | `/api/inscricoes/{id}/matricular` | Efetiva a matrícula e decrementa vaga de forma atômica |
 | `POST` | `/api/inscricoes/{id}/cancelar` | Cancela ou formaliza a desistência da inscrição |
@@ -366,23 +375,25 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 
 ---
 
-### 👤 Trilha A — Giselle: Gestão de Capacidade, Turmas e Concorrência
+### 👤 Trilha A — Giselle: Gestão de Capacidade, Turmas e Concorrência (Concluído)
 
 #### 3.1 Módulo de Turmas (`turmas`)
 - [x] Enum `Turno.java` (`MANHA`, `TARDE`, `INTEGRAL`)
 - [x] Modelo POJO `Turma.java`
-- [x] DAO JDBC `TurmaDAO.java` (`inserir`, `listarPorEscola`, `buscarPorId`, `atualizarSaldoVagas`)
-- [x] Serviço `TurmaService.java` (controle de capacidade, reserva de vagas com `synchronized` contra *race conditions*)
-- [x] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{id}/turmas`)
+- [x] DAO JDBC `TurmaDao.java` (`inserir`, `listarPorEscola`, `buscarPorId`, `atualizarSaldoVagas`)
+- [x] Serviço `TurmaService.java` (controle de capacidade da escola, reserva atômica de vagas com `synchronized` contra *race conditions*)
+- [x] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{escolaId}/turmas`, `GET /api/turmas/{id}`)
 
 #### 3.2 Concorrência e Tarefas em Background (`tarefa`)
+- [x] Modelo DTO `EstatisticasRede.java` e DAO `EstatisticasDAO.java`
 - [x] Tarefa concorrente `TarefaCalcularEstatisticas.java` (`Runnable`, agregando dados da rede)
-- [x] Tarefa concorrente `TarefaNotificarChamada.java` (`Runnable`, simulando envio de avisos)
-- [x] Controlador REST de recálculo concorrente da turma `POST /api/turmas/{turmaId}/recalcular`
+- [x] Tarefa concorrente `TarefaNotificarChamada.java` (`Runnable`, simulando envio de avisos com dados do contato principal)
+- [x] Tarefa concorrente `TarefaRecalcularFila.java` (`Runnable`, reclassificação em lote por pontuação e data)
+- [x] Disparo assíncrono e endpoint REST de recálculo da turma `POST /api/turmas/{turmaId}/recalcular`
 
 ---
 
-### 👤 Trilha B — Maria: Domínio Cidadão e Motor de Pontuação
+### 👤 Trilha B — Maria: Domínio Cidadão e Motor de Pontuação (Pendente)
 
 #### 4.1 Módulo de Responsáveis e Alunos (`responsaveis`, `alunos`, `aluno_responsaveis`)
 - [ ] Superclasse abstrata `Pessoa.java` (herança e atributos comuns como nome, id)
