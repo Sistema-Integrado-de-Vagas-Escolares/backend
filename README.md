@@ -288,7 +288,7 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 - [x] Modelo POJO `Turma.java`
 - [x] DAO JDBC `TurmaDAO.java` (`inserir`, `listarPorEscola`, `buscarPorId`, `atualizarSaldoVagas`)
 - [x] Serviço `TurmaService.java` (controle de capacidade, reserva de vagas com `synchronized` contra *race conditions*)
-- [ ] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{id}/turmas`)
+- [x] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{id}/turmas`)
 
 #### 3.2 Concorrência e Tarefas em Background (`tarefa`)
 - [ ] Tarefa concorrente `TarefaCalcularEstatisticas.java` (`Runnable`, agregando dados da rede)

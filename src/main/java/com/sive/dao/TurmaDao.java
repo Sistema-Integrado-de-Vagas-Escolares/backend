@@ -91,7 +91,7 @@ public class TurmaDao {
      * Busca uma turma pelo seu identificador unico (UUID).
      */
     public Turma buscarPorId(UUID id) throws SQLException {
-        String sql = "SELECT id, escola_id, serie_ano, turno, vagas_totais, vagas_disponiveis, created_at FROM escolas WHERE id = ?";
+        String sql = "SELECT id, escola_id, serie_ano, turno, vagas_totais, vagas_disponiveis, created_at FROM turmas WHERE id = ?";
 
         try (Connection conn = Conexao.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -121,14 +121,14 @@ public class TurmaDao {
     }
 
     /**
-     * Atualiza o saldo de vagas de uma turma.
+     * Atualiza o saldo de vagas disponiveis de uma turma para um valor especifico.
      */
-    public void atualizarSaldoVagas(UUID id, int quantidade) throws SQLException {
-        String sql = "UPDATE turmas SET vagas_disponiveis = vagas_disponiveis + ? WHERE id = ?";
+    public void atualizarSaldoVagas(UUID id, int novoSaldo) throws SQLException {
+        String sql = "UPDATE turmas SET vagas_disponiveis = ? WHERE id = ?";
 
         try (Connection conn = Conexao.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, quantidade);
+            stmt.setInt(1, novoSaldo);
             stmt.setObject(2, id);
             stmt.executeUpdate();
         }
