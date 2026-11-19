@@ -229,26 +229,109 @@ Todas as rotas retornam e recebem cargas úteis no formato `application/json`.
 
 ---
 
-## 6. Como Executar o Projeto
+## 6. Como Executar e Testar Localmente
 
 ### Pré-requisitos
 - [Docker](https://www.docker.com/) e Docker Compose instalados.
 - [Java JDK 17+](https://adoptium.net/) instalado.
 
-### 1. Iniciar o Banco de Dados (PostgreSQL)
-Na raiz do diretório `backend/`, execute:
-```bash
-docker compose up -d
-```
-O banco criará a base `sive_db` na porta padrão `5432` e executará automaticamente o script `sql/schema.sql`.
+---
 
-### 2. Executar a Aplicação
-Execute o projeto utilizando o Maven Wrapper:
+### Opção A: Executar com Docker Compose Completo (Recomendado)
+Sobe tanto o banco PostgreSQL quanto o backend em containers integrados:
+
 ```bash
-mvn spring-boot:run
+cd backend
+docker compose up --build -d
 ```
+A API estará pronta e respondendo em: `http://localhost:8080`
+
+Para parar os serviços:
+```bash
+docker compose down
+```
+
+---
+
+### Opção B: Executar Manualmente (Backend na Máquina Host)
+
+#### 1. Iniciar apenas o Banco de Dados (PostgreSQL)
+Na pasta `backend/`, inicie o container do banco:
+```bash
+cd backend
+docker compose up sive-db -d
+```
+O banco criará a base `sive_db` na porta padrão `5432` e executará automaticamente o script DDL `sql/schema.sql`.
+
+#### 2. Testar Conexão com o Banco (Opcional)
+Você pode rodar o método utilitário de teste em `Conexao.java`:
+- **Windows (PowerShell):**
+  ```powershell
+  .\mvnw.cmd test-compile
+  java -cp "target/classes;target/dependency/*" com.sive.dao.Conexao
+  ```
+
+#### 3. Executar a Aplicação Spring Boot
+- **Windows:**
+  ```powershell
+  .\mvnw.cmd spring-boot:run
+  ```
+- **Linux/macOS:**
+  ```bash
+  ./mvnw spring-boot:run
+  ```
 
 A API estará disponível em: `http://localhost:8080`
+
+---
+
+### 🧪 Instruções de Teste das Rotas da API
+
+#### 1. Usando a extensão REST Client do VS Code / IDE
+O projeto possui um arquivo de teste completo em [`backend/client.http`](file:///c:/Users/cg3047172/Documents/sive/backend/client.http).
+Basta abrir o arquivo e clicar em **"Send Request"** sobre cada requisição para testar os fluxos sequencialmente.
+
+#### 2. Testando via cURL / Terminal
+
+##### Passo 1: Cadastrar uma Escola
+```bash
+curl -X POST http://localhost:8080/api/escolas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nome": "EMEF Cecília Meireles",
+    "bairro": "Centro",
+    "cidade": "São Paulo",
+    "capacidadeTotal": 450
+  }'
+```
+> Guarde o campo `"id"` retornado no JSON para o próximo passo.
+
+##### Passo 2: Listar Escolas
+```bash
+curl -X GET http://localhost:8080/api/escolas
+```
+
+##### Passo 3: Cadastrar uma Turma (Substitua `<escolaId>` pelo ID retornado)
+```bash
+curl -X POST http://localhost:8080/api/turmas \
+  -H "Content-Type: application/json" \
+  -d '{
+    "escolaId": "<escolaId>",
+    "serieAno": "1º Ano Fundamental",
+    "turno": "MANHA",
+    "vagasTotais": 30
+  }'
+```
+
+##### Passo 4: Listar Turmas da Escola
+```bash
+curl -X GET http://localhost:8080/api/escolas/<escolaId>/turmas
+```
+
+##### Passo 5: Buscar Turma por ID
+```bash
+curl -X GET http://localhost:8080/api/turmas/<turmaId>
+```
 
 ---
 
