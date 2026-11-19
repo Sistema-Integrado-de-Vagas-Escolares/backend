@@ -1,11 +1,19 @@
 # Diagrama de Casos de Uso — SIVE
 
-O Diagrama de Casos de Uso descreve os atores que interagem com o **SIVE (Sistema Integrado de Vagas Escolares)** e suas interações com as funcionalidades do sistema.
+O Diagrama de Casos de Uso descreve as interações com o **SIVE (Sistema Integrado de Vagas Escolares)**, detalhando todos os atores envolvidos: atores primários (usuários humanos) e atores secundários/suporte (sistemas externos, frontend, threads de background e banco de dados).
 
-## Atores
-- **Responsável Legal:** Cidadão que inscreve o dependente, consulta o andamento da solicitação e formaliza desistência/matrícula.
-- **Gestor Escolar / Administrador:** Administrador ou servidor público que cadastra escolas e turmas, monitora a fila de espera, convoca candidatos e dispara o recálculo e auditoria de vagas.
-- **Sistema SIVE (Timer / Batch):** Processos automáticos e em segundo plano (threads) para recálculo e notificações.
+---
+
+## Atores do Sistema
+
+### Atores Primários (Usuários Humanos)
+- **Responsável Legal:** Cidadão que cadastra seu perfil, registra os dependentes legais, formaliza solicitações de vagas na escola desejada, consulta o protocolo e pode solicitar o cancelamento.
+- **Gestor Escolar / Administrador:** Agente público que cadastra as unidades escolares e turmas, monitora as filas de espera, convoca candidatos e formaliza a efetivação da matrícula.
+
+### Atores Secundários / Suporte (Técnicos e Infraestrutura)
+- **Frontend (Interface Web / SPA):** Aplicação cliente que captura os dados digitados pelos usuários, valida formulários em tempo de tela, formata payloads JSON e consome as APIs REST do backend.
+- **Processador em Background (Threads / Jobs SIVE):** Subsistema concorrente que executa tarefas demoradas e assíncronas (`Runnable`), como reordenação em lote da fila e simulação de notificações.
+- **Banco de Dados (PostgreSQL 16):** Sistema gerenciador de banco de dados relacional que atua como ator de suporte na persistência das entidades, garantia de constraints de integridade e locks transacionais.
 
 ---
 
@@ -13,64 +21,95 @@ O Diagrama de Casos de Uso descreve os atores que interagem com o **SIVE (Sistem
 
 ```mermaid
 flowchart LR
-    subgraph Atores
+    %% Atores Primários (Humanos)
+    subgraph AtoresHumanos["Atores Primários (Usuários)"]
         Resp["fa:fa-user Responsável Legal"]
         Admin["fa:fa-user-tie Gestor Escolar"]
-        Sist["fa:fa-cogs Sistema SIVE (Jobs/Threads)"]
     end
 
-    subgraph CasosDeUso["Casos de Uso — SIVE"]
+    %% Ator de Intermediação de Interface
+    subgraph Intermediario["Ator de Interface"]
+        Front["fa:fa-desktop Frontend (SPA / Web)"]
+    end
+
+    %% Fronteira do Sistema Backend
+    subgraph CasosDeUso["Sistema SIVE (Backend REST)"]
         UC01(["Cadastrar Escola"])
         UC02(["Cadastrar Turma e Vagas"])
         UC03(["Cadastrar Responsável Legal"])
         UC04(["Cadastrar Aluno Vinculado"])
         UC05(["Solicitar Vaga (Criar Inscrição)"])
-        UC06(["Calcular Pontuação Socioeconômica"])
+        UC06(["Calcular Pontuação Socioeconômica (Strategy)"])
         UC07(["Consultar Fila por Protocolo"])
         UC08(["Visualizar Fila da Turma"])
         UC09(["Recalcular Classificação da Fila"])
         UC10(["Convocar Candidato"])
-        UC11(["Efetivar Matrícula"])
+        UC11(["Efetivar Matrícula (Atômica / Synchronized)"])
         UC12(["Cancelar Inscrição"])
     end
 
-    %% Relações do Responsável
-    Resp --> UC03
-    Resp --> UC04
-    Resp --> UC05
-    Resp --> UC07
-    Resp --> UC12
+    %% Atores Secundários / Infraestrutura
+    subgraph AtoresSuporte["Atores Secundários (Suporte / Infraestrutura)"]
+        ThreadBatch["fa:fa-cogs Processador em Background\n(Threads/Jobs)"]
+        DB[("fa:fa-database Banco de Dados\n(PostgreSQL 16)")]
+    end
 
-    %% Relações do Administrador
-    Admin --> UC01
-    Admin --> UC02
-    Admin --> UC08
-    Admin --> UC09
-    Admin --> UC10
-    Admin --> UC11
+    %% Interação Humanos com Frontend
+    Resp -->|Utiliza| Front
+    Admin -->|Utiliza| Front
 
-    %% Inclusões e Extensões
-    UC05 -.->|includes| UC06
-    UC10 -.->|includes| Sist
-    UC09 -.->|triggered by| Sist
+    %% Frontend disparando Casos de Uso REST
+    Front -->|POST /api/responsaveis| UC03
+    Front -->|POST /api/alunos| UC04
+    Front -->|POST /api/inscricoes| UC05
+    Front -->|GET /api/inscricoes/protocolo| UC07
+    Front -->|POST /api/inscricoes/.../cancelar| UC12
+
+    Front -->|POST /api/escolas| UC01
+    Front -->|POST /api/turmas| UC02
+    Front -->|GET /api/turmas/.../fila| UC08
+    Front -->|POST /api/turmas/.../recalcular| UC09
+    Front -->|POST /api/inscricoes/.../convocar| UC10
+    Front -->|POST /api/inscricoes/.../matricular| UC11
+
+    %% Relacionamento de Inclusão interna
+    UC05 -.->|<<include>>| UC06
+
+    %% Interação com Threads em Background
+    UC09 -.->|dispara thread assíncrona| ThreadBatch
+    UC05 -.->|notifica para reordenação| ThreadBatch
+    UC10 -.->|agenda aviso| ThreadBatch
+
+    %% Interação com Banco de Dados (Persistência e Leitura)
+    UC01 -->|persiste| DB
+    UC02 -->|persiste| DB
+    UC03 -->|persiste| DB
+    UC04 -->|persiste| DB
+    UC05 -->|persiste| DB
+    UC07 -->|consulta| DB
+    UC08 -->|consulta| DB
+    UC09 -->|atualiza posições| DB
+    UC10 -->|atualiza status| DB
+    UC11 -->|decrementa vaga e atualiza status| DB
+    UC12 -->|atualiza status| DB
+    ThreadBatch -->|lê e atualiza em lote| DB
 ```
 
 ---
 
-## Descrição dos Casos de Uso Principais
+## Matriz de Rastreabilidade de Casos de Uso e Atores
 
-| ID | Caso de Uso | Ator Principal | Descrição |
-| :--- | :--- | :--- | :--- |
-| **UC01** | Cadastrar Escola | Gestor Escolar | Cadastra unidades escolares no sistema informando endereço e capacidade total. |
-| **UC02** | Cadastrar Turma e Vagas | Gestor Escolar | Cria turmas vinculadas a escolas definindo turno, série e número de vagas. |
-| **UC03** | Cadastrar Responsável Legal | Responsável Legal | Registra os dados cadastrais, CPF, contato e renda familiar per capita. |
-| **UC04** | Cadastrar Aluno Vinculado | Responsável Legal | Cadastra a criança, dados de certidão, necessidades especiais e o vínculo N:N de parentesco. |
-| **UC05** | Solicitar Vaga (Criar Inscrição) | Responsável Legal | Seleciona o aluno e a turma de interesse, gerando um protocolo único. |
-| **UC06** | Calcular Pontuação Socioeconômica | Sistema (Strategy) | Avalia renda, proximidade residencial, irmãos e necessidades especiais. |
-| **UC07** | Consultar Fila por Protocolo | Responsável Legal | Consulta pública da situação e posição ordinal do candidato na fila. |
-| **UC08** | Visualizar Fila da Turma | Gestor Escolar | Lista a ordenação completa de candidatos da turma por pontuação decrescente. |
-| **UC09** | Recalcular Classificação | Gestor / Sistema | Executa o recálculo em lote da pontuação e reordenação via thread separada. |
-| **UC10** | Convocar Candidato | Gestor Escolar | Altera status para `CHAMADO` e envia aviso para apresentação de documentos. |
-| **UC11** | Efetivar Matrícula | Gestor Escolar | Aloca a vaga atomicamente (`synchronized`), decrementando o saldo da turma. |
-| **UC12** | Cancelar Inscrição | Responsável / Gestor | Formaliza a desistência ou anulação da solicitação de vaga. |
-
+| ID | Caso de Uso | Ator Primário | Ator de Interface | Atores Secundários Envolvidos | Descrição |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **UC01** | Cadastrar Escola | Gestor Escolar | Frontend | Banco de Dados | Registra novas escolas e suas capacidades no banco. |
+| **UC02** | Cadastrar Turma e Vagas | Gestor Escolar | Frontend | Banco de Dados | Cadastra turmas vinculadas às escolas com número de vagas por turno. |
+| **UC03** | Cadastrar Responsável Legal | Responsável Legal | Frontend | Banco de Dados | Registra dados pessoais, renda per capita e telefone do responsável. |
+| **UC04** | Cadastrar Aluno Vinculado | Responsável Legal | Frontend | Banco de Dados | Salva dados da certidão, deficiência e o vínculo N:N com responsáveis. |
+| **UC05** | Solicitar Vaga (Inscrição) | Responsável Legal | Frontend | Background, Banco de Dados | Cria a inscrição, calcula pontos (`Strategy`), persiste e aciona a reclassificação. |
+| **UC06** | Calcular Pontuação Socioeconômica | *Sistema interno* | — | Banco de Dados | Avalia renda, proximidade, irmãos e PCD para somar a pontuação. |
+| **UC07** | Consultar Fila por Protocolo | Responsável Legal | Frontend | Banco de Dados | Consulta pública da posição do candidato sem expor dados sensíveis. |
+| **UC08** | Visualizar Fila da Turma | Gestor Escolar | Frontend | Banco de Dados | Lista os inscritos da turma ordenados por pontuação decrescente. |
+| **UC09** | Recalcular Classificação | Gestor Escolar | Frontend | Background, Banco de Dados | Dispara rotina concorrente via Thread para reordenar toda a fila. |
+| **UC10** | Convocar Candidato | Gestor Escolar | Frontend | Background, Banco de Dados | Altera o status para `CHAMADO` e dispara simulação de notificação. |
+| **UC11** | Efetivar Matrícula | Gestor Escolar | Frontend | Banco de Dados | Decrementa vaga de forma atômica/sincronizada e fixa o status `MATRICULADO`. |
+| **UC12** | Cancelar Inscrição | Responsável / Gestor | Frontend | Banco de Dados | Formaliza a desistência ou anulação da inscrição na fila. |
