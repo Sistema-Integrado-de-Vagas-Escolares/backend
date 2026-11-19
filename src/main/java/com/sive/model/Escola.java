@@ -2,9 +2,6 @@ package com.sive.model;
 
 import java.util.UUID;
 
-/**
- * Entidade de dominio que representa uma Unidade Escolar.
- */
 public class Escola {
 
     private UUID id;
@@ -13,15 +10,9 @@ public class Escola {
     private String cidade;
     private int capacidadeTotal;
 
-    /**
-     * Construtor padrao necessario para frameworks de serializacao (Jackson).
-     */
     public Escola() {
     }
 
-    /**
-     * Construtor para novas escolas (sem ID gerado previamente).
-     */
     public Escola(String nome, String bairro, String cidade, int capacidadeTotal) {
         this.nome = nome;
         this.bairro = bairro;
@@ -29,9 +20,6 @@ public class Escola {
         this.capacidadeTotal = capacidadeTotal;
     }
 
-    /**
-     * Construtor completo com todos os campos persistidos.
-     */
     public Escola(UUID id, String nome, String bairro, String cidade, int capacidadeTotal) {
         this.id = id;
         this.nome = nome;
@@ -40,7 +28,6 @@ public class Escola {
         this.capacidadeTotal = capacidadeTotal;
     }
 
-    // Getters e Setters
     public UUID getId() {
         return id;
     }

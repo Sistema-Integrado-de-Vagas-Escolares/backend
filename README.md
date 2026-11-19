@@ -291,7 +291,7 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 - [x] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{id}/turmas`)
 
 #### 3.2 Concorrência e Tarefas em Background (`tarefa`)
-- [ ] Tarefa concorrente `TarefaCalcularEstatisticas.java` (`Runnable`, agregando dados da rede)
+- [x] Tarefa concorrente `TarefaCalcularEstatisticas.java` (`Runnable`, agregando dados da rede)
 - [ ] Tarefa concorrente `TarefaNotificarChamada.java` (`Runnable`, simulando envio de avisos)
 - [ ] Endpoint de recálculo concorrente da turma `POST /api/turmas/{turmaId}/recalcular`
 
