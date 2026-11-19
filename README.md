@@ -309,12 +309,20 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 - [x] Controladores REST `ResponsavelController.java` e `AlunoController.java`
 
 #### 4.2 Motor de Pontuação Strategy (`strategy`)
-- [ ] Interface `CriterioPontuacaoStrategy.java` (`double calcularPontos(Inscricao inscricao)`)
-- [ ] Implementação `CriterioRendaStrategy.java` (pontuação por faixa de renda per capita)
-- [ ] Implementação `CriterioProximidadeStrategy.java` (pontuação por distância residencial)
-- [ ] Implementação `CriterioIrmaoStrategy.java` (bônus por irmão na mesma escola)
-- [ ] Implementação `CriterioPcdStrategy.java` (prioridade para candidatos com deficiência)
-- [ ] Fábrica de estratégias `CriterioStrategyFactory.java`
+- [x] Interface `CriterioPontuacaoStrategy.java` (`double calcularPontos(Inscricao inscricao)` e `String getNomeCriterio()`)
+- [ ] Implementação `CriterioRendaStrategy.java` (pontuação por faixa de renda per capita — pendente de definição)
+- [ ] Implementação `CriterioProximidadeStrategy.java` (pontuação por distância residencial — pendente de definição)
+- [ ] Implementação `CriterioIrmaoStrategy.java` (bônus por irmão na mesma escola — pendente de definição)
+- [x] Implementação `CriterioPcdStrategy.java` (prioridade para candidatos com deficiência — criada com 30.0 pontos temporários)
+- [x] Fábrica de estratégias `CriterioStrategyFactory.java` (criada com Switch Expressions para os 4 códigos, com PCD ativo)
+
+> **Registro de Implementação e Pendências Técnicas:**
+> 1. A interface `CriterioPontuacaoStrategy` foi criada com os métodos `calcularPontos(Inscricao inscricao)` e `getNomeCriterio()`.
+> 2. A `CriterioPcdStrategy` foi criada e atualmente utiliza 30.0 pontos, conforme o seed da tabela `criterios`.
+> 3. O valor de 30.0 está fixo temporariamente na implementação Java e ainda precisa ser avaliado quanto à possibilidade de leitura dinâmica da tabela `criterios`.
+> 4. A `CriterioPcdStrategy` depende de `Inscricao.getAluno()`, associação que deverá ser considerada na implementação compartilhada da classe `Inscricao.java`, na etapa 5.1.
+> 5. A Factory foi criada, mas somente o critério PCD está implementado. `RENDA`, `PROXIMIDADE` e `IRMAO` continuam pendentes de definição e implementação.
+> 6. A compilação está temporariamente bloqueada pela ausência de `Inscricao.java`, pertencente à etapa compartilhada 5.1.
 
 ---
 
