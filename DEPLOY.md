@@ -97,6 +97,31 @@ O Fly.io construirá a imagem Docker na nuvem, iniciará os serviços e disponib
 
 ---
 
+### 8. Testar a Aplicação (Health Check)
+Você pode testar a integridade da aplicação e a conectividade com o banco PostgreSQL chamando a rota de verificação:
+
+```bash
+curl https://sive-backend.fly.dev/health-check
+```
+
+*(Ou localmente se estiver rodando via `./mvnw spring-boot:run`: `curl http://localhost:8080/health-check`)*
+
+Exemplo de retorno esperado:
+```json
+{
+  "status": "UP",
+  "app": "sive-backend",
+  "timestamp": "2026-11-20T...",
+  "database": {
+    "status": "UP",
+    "mensagem": "Conexão com PostgreSQL ativa",
+    "catalogo": "sive_backend"
+  }
+}
+```
+
+---
+
 ## 🔍 Comandos Úteis para Monitorar e Controlar Custos
 
 ### Ver status e URL da aplicação:
