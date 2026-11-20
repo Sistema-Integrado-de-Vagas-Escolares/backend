@@ -48,6 +48,12 @@ fly postgres create \
 
 > **Dica:** O terminal exibirá o usuário e senha gerados. O Fly vai conectar tudo automaticamente no passo 5, mas você pode anotar se desejar.
 
+Em seguida, execute este comando para desativar o auto-stop do banco e **garantir que ele fique sempre ligado** (sem hibernar por inatividade):
+
+```bash
+fly machine update $(fly machines list -a sive-postgres -q) -a sive-postgres --autostop=false
+```
+
 ---
 
 ### 4. Configurar a Aplicação Backend
@@ -65,6 +71,11 @@ fly launch --copy-config
 
 - Quando perguntar se deseja fazer alterações nas configurações (*"Do you want to tweak these settings before proceeding?"*), digite **`N`** (Não).
 - Quando perguntar se deseja fazer o deploy imediatamente (*"Would you like to deploy now?"*), responda **`N`** (Não), pois precisamos antes conectar o banco de dados no passo seguinte.
+
+> **Nota sobre máquinas:** Por padrão, o `fly launch` provisiona **2 máquinas** para o backend para alta disponibilidade (redundância). Para economizar recursos no trabalho acadêmico e manter apenas **1 máquina**, execute:
+> ```bash
+> fly scale count 1 -a sive-backend
+> ```
 
 ---
 
