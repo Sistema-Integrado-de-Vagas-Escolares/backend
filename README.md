@@ -356,13 +356,13 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 - [x] Suporte ao relacionamento N:N entre Alunos e Responsáveis (`aluno_responsaveis`)
 - [x] Seeds com critérios iniciais de pontuação
 - [x] Gerenciador de conexão JDBC nativa (`com.sive.dao.Conexao`)
-- [x] Configuração limpa do Maven (Java 17, Spring Web, Driver PostgreSQL, sem Lombok e sem JPA)
+- [x] Configuração limpa do Maven (Java 17, Spring Web, Driver PostgreSQL)
 - [x] Regras de desenvolvimento e governança do agente (`SKILL.md` e `GEMINI.md`)
 
 ---
 
 ### 2. Módulo de Escolas (Concluído)
-- [x] Modelo POJO `Escola.java`
+- [x] Modelo `Escola.java`
 - [x] DAO JDBC `EscolaDAO.java` (`inserir`, `listar`, `buscarPorId`)
 - [x] Serviço com regras e validações `EscolaService.java`
 - [x] Controlador REST `EscolaController.java` (`POST /api/escolas`, `GET /api/escolas`, `GET /api/escolas/{id}`)
@@ -379,7 +379,7 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 
 #### 3.1 Módulo de Turmas (`turmas`)
 - [x] Enum `Turno.java` (`MANHA`, `TARDE`, `INTEGRAL`)
-- [x] Modelo POJO `Turma.java`
+- [x] Modelo `Turma.java`
 - [x] DAO JDBC `TurmaDao.java` (`inserir`, `listarPorEscola`, `buscarPorId`, `atualizarSaldoVagas`)
 - [x] Serviço `TurmaService.java` (controle de capacidade da escola, reserva atômica de vagas com `synchronized` contra *race conditions*)
 - [x] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{escolaId}/turmas`, `GET /api/turmas/{id}`)
@@ -397,9 +397,9 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 
 #### 4.1 Módulo de Responsáveis e Alunos (`responsaveis`, `alunos`, `aluno_responsaveis`)
 - [x] Superclasse abstrata `Pessoa.java` (herança e atributos comuns como nome, id)
-- [x] Modelo POJO `Responsavel.java` (subclasse de `Pessoa`, com renda familiar e telefone)
-- [x] Modelo POJO `Aluno.java` (subclasse de `Pessoa`, com certidão e necessidades especiais)
-- [x] Modelo POJO `AlunoResponsavel.java` (associação com parentesco e contato principal)
+- [x] Modelo `Responsavel.java` (subclasse de `Pessoa`, com renda familiar e telefone)
+- [x] Modelo `Aluno.java` (subclasse de `Pessoa`, com certidão e necessidades especiais)
+- [x] Modelo `AlunoResponsavel.java` (associação com parentesco e contato principal)
 - [x] DAOs JDBC `ResponsavelDAO.java`, `AlunoDAO.java` e `AlunoResponsavelDAO.java`
 - [x] Serviços `ResponsavelService.java` e `AlunoService.java`
 - [x] Controladores REST `ResponsavelController.java` e `AlunoController.java`
@@ -416,18 +416,18 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 > 1. A interface `CriterioPontuacaoStrategy` foi criada com os métodos `calcularPontos(Inscricao inscricao)` e `getNomeCriterio()`.
 > 2. A `CriterioPcdStrategy` foi criada e atualmente utiliza 30.0 pontos, conforme o seed da tabela `criterios`.
 > 3. O valor de 30.0 está fixo temporariamente na implementação Java e ainda precisa ser avaliado quanto à possibilidade de leitura dinâmica da tabela `criterios`.
-> 4. A `CriterioPcdStrategy` depende de `Inscricao.getAluno()`, associação que deverá ser considerada na implementação compartilhada da classe `Inscricao.java`, na etapa 5.1.
+> 4. A `CriterioPcdStrategy` depende de `Inscricao.getAluno()`, associação contemplada na classe `Inscricao.java`.
 > 5. A Factory foi criada, mas somente o critério PCD está implementado. `RENDA`, `PROXIMIDADE` e `IRMAO` continuam pendentes de definição e implementação.
-> 6. A compilação está temporariamente bloqueada pela ausência de `Inscricao.java`, pertencente à etapa compartilhada 5.1.
+> 6. Compilação do projeto verificada com sucesso (`mvn clean package -DskipTests` e `mvn test-compile`).
 
 ---
 
 ### 👥 Etapa de Integração (Giselle & Maria em Parceria)
 
 #### 5.1 Módulo de Inscrições e Fila de Espera (`inscricoes`, `inscricao_criterios`)
-- [ ] Enum `StatusInscricao.java` (`EM_ESPERA`, `CHAMADO`, `MATRICULADO`, `CANCELADO`, `EXPIRADO`)
-- [ ] Modelo POJO `Inscricao.java` e `InscricaoCriterio.java`
+- [x] Enum `StatusInscricao.java` (`EM_ESPERA`, `CHAMADO`, `MATRICULADO`, `CANCELADO`, `EXPIRADO`)
+- [x] Modelos `Inscricao.java`, `InscricaoCriterio.java` e `Criterio.java`
 - [ ] DAO JDBC `InscricaoDAO.java` (cadastro, busca por protocolo, fila ordenada, atualização de status)
 - [ ] Serviço `InscricaoService.java` (coordenação entre pontuação Strategy, protocolo e vagas)
 - [ ] Controlador REST `InscricaoController.java` (`POST /api/inscricoes`, `GET /api/inscricoes/protocolo/{protocolo}`, `GET /api/turmas/{turmaId}/fila`, `POST /api/inscricoes/{id}/convocar`, `POST /api/inscricoes/{id}/matricular`, `POST /api/inscricoes/{id}/cancelar`)
-- [ ] Tarefa concorrente `TarefaRecalcularFila.java` (`Runnable`, ordenação e reclassificação de posições)
+- [x] Tarefa concorrente `TarefaRecalcularFila.java` (`Runnable`, ordenação e reclassificação de posições)
