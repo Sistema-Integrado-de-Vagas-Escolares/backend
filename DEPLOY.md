@@ -48,9 +48,10 @@ fly postgres create \
 
 > **Dica:** O terminal exibirá o usuário e senha gerados. O Fly vai conectar tudo automaticamente no passo 5, mas você pode anotar se desejar.
 
-Em seguida, execute este comando para desativar o auto-stop do banco e **garantir que ele fique sempre ligado** (sem hibernar por inatividade):
+Em seguida, execute estes comandos para aumentar a memória para 512MB (evitando que o Postgres caia por falta de memória) e desativar o auto-stop do banco para **garantir que ele fique sempre ligado**:
 
 ```bash
+fly scale memory 512 -a sive-postgres
 fly machine update $(fly machines list -a sive-postgres -q) -a sive-postgres --autostop=false
 ```
 
@@ -83,7 +84,7 @@ fly launch --copy-config
 Vincule o cluster do Postgres à aplicação. Isso injeta automaticamente a variável de ambiente `DATABASE_URL` no seu backend:
 
 ```bash
-fly postgres attach sive-postgres
+fly postgres attach sive-postgres -a sive-backend
 ```
 
 ---

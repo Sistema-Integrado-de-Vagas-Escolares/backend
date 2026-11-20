@@ -34,5 +34,5 @@ COPY --from=builder /app/target/*.jar app.jar
 ENV PORT=8080
 EXPOSE 8080
 
-# Inicia a aplicacao passando o profile e a porta dinamicamente
-ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8080} -jar app.jar"]
+# Inicia a aplicacao passando o profile e a porta dinamicamente, limitando a memoria da JVM
+ENTRYPOINT ["sh", "-c", "java -XX:MaxRAMPercentage=75.0 -Dserver.port=${PORT:-8080} -jar app.jar"]

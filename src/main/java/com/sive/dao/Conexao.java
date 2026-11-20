@@ -51,7 +51,19 @@ public final class Conexao {
                     if (path != null && path.startsWith("/")) {
                         path = path.substring(1);
                     }
-                    url = "jdbc:postgresql://" + dbUri.getHost() + ":" + port + "/" + path;
+
+                    String query = dbUri.getQuery();
+                    StringBuilder queryParams = new StringBuilder();
+                    if (query != null && !query.isEmpty()) {
+                        queryParams.append("?").append(query);
+                        if (!query.contains("sslmode")) {
+                            queryParams.append("&sslmode=disable");
+                        }
+                    } else {
+                        queryParams.append("?sslmode=disable");
+                    }
+
+                    url = "jdbc:postgresql://" + dbUri.getHost() + ":" + port + "/" + path + queryParams.toString();
                 } else {
                     url = databaseUrl;
                     usuario = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "sive_user";
