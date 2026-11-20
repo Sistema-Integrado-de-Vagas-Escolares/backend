@@ -1,0 +1,35 @@
+name: Deploy Backend to Fly.io
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-backend-fly
+      cancel-in-progress: true
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17 (Eclipse Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Testar Compilação do Backend
+        run: mvn test-compile -B
+
+      - name: Instalar flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Disparar Deploy no Fly.io
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

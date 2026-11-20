@@ -133,6 +133,49 @@ Exemplo de retorno esperado:
 
 ---
 
+## 🔄 Fluxo de Atualização Diária (Sempre que alterar o código)
+
+Sempre que você fizer alterações em classes Java, controladores, regras de negócio ou adicionar novas dependências, o fluxo para publicar a nova versão se resume a:
+
+```bash
+cd backend
+fly deploy
+```
+
+> 💡 **Dica de Ouro:** Antes de rodar o `fly deploy`, você pode testar a compilação localmente em 2 segundos com:
+> ```bash
+> mvn test-compile
+> ```
+> Isso garante que o código não tem erros de sintaxe antes de enviar para o build na nuvem!
+
+*(Caso você tenha alterado ou criado novas tabelas no `sql/schema.sql`, aplique as alterações no banco com: `fly postgres connect -a sive-postgres < sql/schema.sql`).*
+
+---
+
+## 🤖 Deploy Automático com GitHub Actions (CI/CD)
+
+Criamos a automação no arquivo [deploy.yml](file:///Users/gisellehoekveldsilva/Development/www/sive/backend/.github/workflows/deploy.yml). Sempre que você fizer `git push` ou aprovar um **merge para a branch `main`**, o GitHub Actions compila, testa e faz o deploy automático para o Fly.io.
+
+### Como ativar em 2 minutos:
+
+1. **Gere o token de deploy do Fly.io no seu terminal:**
+   ```bash
+   fly tokens create deploy -x 999999h
+   ```
+   *(Copie o token longo que começará com `FlyV1...`)*.
+
+2. **Adicione o token como Secret no GitHub:**
+   - Acesse o repositório no GitHub: `Sistema-Integrado-de-Vagas-Escolares/backend`
+   - Vá em **Settings** > **Secrets and variables** > **Actions**.
+   - Clique em **New repository secret**.
+   - **Name:** `FLY_API_TOKEN`
+   - **Secret:** cole o token copiado no passo 1.
+   - Clique em **Add secret**.
+
+Pronto! A partir de agora, qualquer commit ou merge na `main` dispara o deploy automaticamente na nuvem sem precisar abrir o terminal.
+
+---
+
 ## 🔍 Comandos Úteis para Monitorar e Controlar Custos
 
 ### Ver status e URL da aplicação:
