@@ -1,6 +1,8 @@
 package com.sive.controller;
 
+import com.sive.exception.AcessoNegadoException;
 import com.sive.exception.AlunoJaInscritoException;
+import com.sive.exception.AutenticacaoException;
 import com.sive.exception.InscricaoNaoEncontradaException;
 import com.sive.exception.SiveException;
 import com.sive.exception.StatusInvalidoException;
@@ -28,6 +30,18 @@ public class GlobalExceptionHandler {
         corpo.put("error", status.getReasonPhrase());
         corpo.put("message", mensagem);
         return corpo;
+    }
+
+    @ExceptionHandler(AutenticacaoException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorized(AutenticacaoException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(construirCorpoErro(HttpStatus.UNAUTHORIZED, ex.getMessage()));
+    }
+
+    @ExceptionHandler(AcessoNegadoException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(AcessoNegadoException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(construirCorpoErro(HttpStatus.FORBIDDEN, ex.getMessage()));
     }
 
     @ExceptionHandler(InscricaoNaoEncontradaException.class)
