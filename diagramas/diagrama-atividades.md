@@ -42,7 +42,7 @@ flowchart TD
     subgraph ThreadAsync["Thread Concorrente em Background"]
         OrdenarFila["Recuperar todas as inscrições EM_ESPERA da turma"]
         OrdenarFila --> OrdenarDecrescente["Ordenar por pontuação DESC e data ASC"]
-        OrdenarDecrescente --> AtualizarPosicoes["Atualizar posicao_fila de cada candidato no BD"]
+        OrdenarDecrescente --> LogConclusao["Concluir reordenação (posição é ordinal calculada dinamicamente pelo frontend)"]
     end
 
     DispararThread -.-> ThreadAsync

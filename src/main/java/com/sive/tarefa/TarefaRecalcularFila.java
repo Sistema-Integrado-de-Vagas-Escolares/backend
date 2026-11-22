@@ -10,10 +10,6 @@ import java.util.UUID;
 
 import com.sive.dao.Conexao;
 
-/**
- * Tarefa concorrente (Runnable) para reordenar e reclassificar as posições
- * da fila de espera de uma turma com base na pontuação total (DESC) e data de inscrição (ASC).
- */
 public class TarefaRecalcularFila implements Runnable {
 
     private final UUID turmaId;
@@ -36,16 +32,12 @@ public class TarefaRecalcularFila implements Runnable {
                 + "WHERE turma_id = ? AND status = 'EM_ESPERA' "
                 + "ORDER BY pontuacao_total DESC, data_inscricao ASC";
 
-        String sqlAtualizarPosicao = "UPDATE inscricoes SET posicao_fila = ? WHERE id = ?";
-
         try {
-            // Simulação de processamento concorrente em lote
             Thread.sleep(100);
 
             List<UUID> inscricoesOrdenadas = new ArrayList<>();
 
             try (Connection conn = Conexao.getConnection()) {
-                // 1. Busca os IDs na ordem correta de classificação
                 try (PreparedStatement stmt = conn.prepareStatement(sqlBuscarFila)) {
                     stmt.setObject(1, turmaId);
                     try (ResultSet rs = stmt.executeQuery()) {
@@ -53,18 +45,6 @@ public class TarefaRecalcularFila implements Runnable {
                             inscricoesOrdenadas.add((UUID) rs.getObject("id"));
                         }
                     }
-                }
-
-                // 2. Atualiza a posição ordinal de cada candidato
-                try (PreparedStatement stmtUpdate = conn.prepareStatement(sqlAtualizarPosicao)) {
-                    int posicao = 1;
-                    for (UUID inscricaoId : inscricoesOrdenadas) {
-                        stmtUpdate.setInt(1, posicao);
-                        stmtUpdate.setObject(2, inscricaoId);
-                        stmtUpdate.addBatch();
-                        posicao++;
-                    }
-                    stmtUpdate.executeBatch();
                 }
             }
 

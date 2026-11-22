@@ -105,7 +105,6 @@ classDiagram
         -String protocolo
         -LocalDateTime dataInscricao
         -Double pontuacaoTotal
-        -Integer posicaoFila
         -StatusInscricao status
         -LocalDateTime dataChamada
         +calcularPontuacao(List~CriterioPontuacaoStrategy~ strategies) void

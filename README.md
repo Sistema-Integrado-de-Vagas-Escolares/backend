@@ -182,7 +182,6 @@ erDiagram
         varchar protocolo UK
         timestamp data_inscricao
         numeric pontuacao_total
-        integer posicao_fila
         varchar status
         timestamp data_chamada
     }
