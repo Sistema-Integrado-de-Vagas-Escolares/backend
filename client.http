@@ -24,7 +24,10 @@ Content-Type: application/json
   "vagasDisponiveis": 5
 }
 
-### 4. Cadastrar Responsável
+### 4. Recalcular Fila Concorrente da Turma
+POST http://localhost:8080/api/turmas/11111111-1111-1111-1111-111111111111/recalcular
+
+### 5. Cadastrar Responsável
 POST http://localhost:8080/api/responsaveis
 Content-Type: application/json
 

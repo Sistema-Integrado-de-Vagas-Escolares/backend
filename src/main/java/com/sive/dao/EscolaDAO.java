@@ -19,7 +19,8 @@ public class EscolaDAO {
      * Insere uma nova escola no banco de dados.
      */
     public Escola inserir(Escola escola) throws SQLException {
-        String sql = "INSERT INTO escolas (id, nome, bairro, cidade, capacidade_total) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO escolas (id, codigo, nome, bairro, cidade, capacidade_total, senha_hash) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         if (escola.getId() == null) {
             escola.setId(UUID.randomUUID());
@@ -29,10 +30,12 @@ public class EscolaDAO {
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setObject(1, escola.getId());
-            stmt.setString(2, escola.getNome());
-            stmt.setString(3, escola.getBairro());
-            stmt.setString(4, escola.getCidade());
-            stmt.setInt(5, escola.getCapacidadeTotal());
+            stmt.setString(2, escola.getCodigo());
+            stmt.setString(3, escola.getNome());
+            stmt.setString(4, escola.getBairro());
+            stmt.setString(5, escola.getCidade());
+            stmt.setInt(6, escola.getCapacidadeTotal());
+            stmt.setString(7, escola.getSenhaHash());
 
             stmt.executeUpdate();
             return escola;
@@ -44,30 +47,24 @@ public class EscolaDAO {
      */
     public List<Escola> listar() throws SQLException {
         List<Escola> escolas = new ArrayList<>();
-        String sql = "SELECT id, nome, bairro, cidade, capacidade_total FROM escolas ORDER BY nome ASC";
+        String sql = "SELECT id, codigo, nome, bairro, cidade, capacidade_total FROM escolas ORDER BY nome ASC";
 
         try (Connection conn = Conexao.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                Escola escola = new Escola(
-                        (UUID) rs.getObject("id"),
-                        rs.getString("nome"),
-                        rs.getString("bairro"),
-                        rs.getString("cidade"),
-                        rs.getInt("capacidade_total"));
-                escolas.add(escola);
+                escolas.add(mapearEscolaSemSenha(rs));
             }
         }
         return escolas;
     }
 
     /**
-     * Busca uma escola pelo seu identificador unico (UUID).
+     * Busca uma escola pelo seu identificador único (UUID).
      */
     public Escola buscarPorId(UUID id) throws SQLException {
-        String sql = "SELECT id, nome, bairro, cidade, capacidade_total FROM escolas WHERE id = ?";
+        String sql = "SELECT id, codigo, nome, bairro, cidade, capacidade_total FROM escolas WHERE id = ?";
 
         try (Connection conn = Conexao.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -76,15 +73,64 @@ public class EscolaDAO {
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return new Escola(
-                            (UUID) rs.getObject("id"),
-                            rs.getString("nome"),
-                            rs.getString("bairro"),
-                            rs.getString("cidade"),
-                            rs.getInt("capacidade_total"));
+                    return mapearEscolaSemSenha(rs);
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * Busca uma escola pelo código identificador (ex: EMEI-0012), incluindo o hash da senha para autenticação.
+     */
+    public Escola buscarPorCodigo(String codigo) throws SQLException {
+        String sql = "SELECT id, codigo, nome, bairro, cidade, capacidade_total, senha_hash FROM escolas WHERE codigo = ?";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, codigo);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Escola(
+                            (UUID) rs.getObject("id"),
+                            rs.getString("codigo"),
+                            rs.getString("nome"),
+                            rs.getString("bairro"),
+                            rs.getString("cidade"),
+                            rs.getInt("capacidade_total"),
+                            rs.getString("senha_hash"));
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Verifica se já existe uma escola cadastrada com o código informado.
+     */
+    public boolean existePorCodigo(String codigo) throws SQLException {
+        String sql = "SELECT 1 FROM escolas WHERE codigo = ?";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, codigo);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private Escola mapearEscolaSemSenha(ResultSet rs) throws SQLException {
+        return new Escola(
+                (UUID) rs.getObject("id"),
+                rs.getString("codigo"),
+                rs.getString("nome"),
+                rs.getString("bairro"),
+                rs.getString("cidade"),
+                rs.getInt("capacidade_total"));
     }
 }

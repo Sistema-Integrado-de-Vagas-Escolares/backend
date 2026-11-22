@@ -8,10 +8,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. Tabela de Escolas
 CREATE TABLE IF NOT EXISTS escolas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    codigo VARCHAR(30) NOT NULL UNIQUE,
     nome VARCHAR(150) NOT NULL,
     bairro VARCHAR(100) NOT NULL,
     cidade VARCHAR(100) NOT NULL,
     capacidade_total INTEGER NOT NULL CHECK (capacidade_total > 0),
+    senha_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
