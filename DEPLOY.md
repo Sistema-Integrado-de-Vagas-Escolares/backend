@@ -93,7 +93,9 @@ fly postgres attach sive-postgres -a sive-backend
 Crie as 8 tabelas e dados iniciais (seeds) no banco remoto executando o script `schema.sql`:
 
 ```bash
-fly postgres connect -a sive-postgres < sql/schema.sql
+fly postgres connect -a sive-postgres < database/schema.sql
+fly postgres connect -a sive-postgres < database/seeds/01_criterios.sql
+fly postgres connect -a sive-postgres < database/seeds/02_usuario_escola.sql
 ```
 
 ---
@@ -149,7 +151,7 @@ fly deploy
 > ```
 > Isso garante que o código não tem erros de sintaxe antes de enviar para o build na nuvem!
 
-*(Caso você tenha alterado ou criado novas tabelas no `sql/schema.sql`, aplique as alterações no banco com: `fly postgres connect -a sive-postgres < sql/schema.sql`).*
+*(Caso você tenha alterado ou criado novas tabelas no `database/schema.sql`, aplique as alterações no banco com: `fly postgres connect -a sive-postgres < database/schema.sql`).*
 
 ---
 

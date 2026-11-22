@@ -2,6 +2,7 @@ package com.sive.controller;
 
 import com.sive.exception.AcessoNegadoException;
 import com.sive.model.Escola;
+import com.sive.model.ResumoEscola;
 import com.sive.model.Turma;
 import com.sive.security.EscolaAuthInterceptor;
 import com.sive.service.EscolaService;
@@ -45,6 +46,21 @@ public class EscolaPainelController {
                     .body("Escola autenticada não encontrada.");
         }
         return ResponseEntity.ok(escola);
+    }
+
+    /**
+     * Retorna o resumo de indicadores da escola autenticada.
+     * GET /api/escola/resumo
+     */
+    @GetMapping("/resumo")
+    public ResponseEntity<?> resumo(HttpServletRequest request) throws SQLException {
+        UUID escolaId = obterEscolaIdAutenticada(request);
+        ResumoEscola resumo = escolaService.obterResumo(escolaId);
+        if (resumo == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Escola autenticada não encontrada.");
+        }
+        return ResponseEntity.ok(resumo);
     }
 
     /**

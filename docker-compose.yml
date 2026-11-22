@@ -33,7 +33,9 @@ services:
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/seeds/01_criterios.sql:/docker-entrypoint-initdb.d/02-seed-criterios.sql
+      - ./database/seeds/02_usuario_escola.sql:/docker-entrypoint-initdb.d/03-seed-usuario-escola.sql
 
 volumes:
   postgres_data:

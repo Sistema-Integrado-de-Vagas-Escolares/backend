@@ -1,6 +1,7 @@
 package com.sive.dao;
 
 import com.sive.model.Escola;
+import com.sive.model.ResumoEscola;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -120,6 +121,59 @@ public class EscolaDAO {
 
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
+            }
+        }
+    }
+
+    /**
+     * Retorna os indicadores resumidos da escola informada.
+     */
+    public ResumoEscola obterResumo(UUID escolaId) throws SQLException {
+        Escola escola = buscarPorId(escolaId);
+        if (escola == null) {
+            return null;
+        }
+
+        String sqlEmEspera = "SELECT COUNT(*) AS total "
+                + "FROM inscricoes i "
+                + "INNER JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE t.escola_id = ? AND i.status = 'EM_ESPERA'";
+
+        String sqlVagas = "SELECT COALESCE(SUM(vagas_disponiveis), 0) AS total "
+                + "FROM turmas WHERE escola_id = ?";
+
+        String sqlResponsaveis = "SELECT COUNT(DISTINCT ar.responsavel_id) AS total "
+                + "FROM aluno_responsaveis ar "
+                + "INNER JOIN inscricoes i ON i.aluno_id = ar.aluno_id "
+                + "INNER JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE t.escola_id = ?";
+
+        String sqlAlunos = "SELECT COUNT(DISTINCT i.aluno_id) AS total "
+                + "FROM inscricoes i "
+                + "INNER JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE t.escola_id = ?";
+
+        try (Connection conn = Conexao.getConnection()) {
+            int totalEmEspera = contarPorEscola(conn, sqlEmEspera, escolaId);
+            int vagasDisponiveis = contarPorEscola(conn, sqlVagas, escolaId);
+            int totalResponsaveis = contarPorEscola(conn, sqlResponsaveis, escolaId);
+            int totalAlunos = contarPorEscola(conn, sqlAlunos, escolaId);
+
+            return new ResumoEscola(
+                    escola,
+                    totalEmEspera,
+                    vagasDisponiveis,
+                    escola.getCapacidadeTotal(),
+                    totalResponsaveis,
+                    totalAlunos);
+        }
+    }
+
+    private int contarPorEscola(Connection conn, String sql, UUID escolaId) throws SQLException {
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, escolaId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? rs.getInt("total") : 0;
             }
         }
     }

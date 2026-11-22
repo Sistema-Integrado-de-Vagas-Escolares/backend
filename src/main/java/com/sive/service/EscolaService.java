@@ -2,6 +2,7 @@ package com.sive.service;
 
 import com.sive.dao.EscolaDAO;
 import com.sive.model.Escola;
+import com.sive.model.ResumoEscola;
 import com.sive.security.PasswordHasher;
 import org.springframework.stereotype.Service;
 
@@ -74,5 +75,15 @@ public class EscolaService {
             throw new IllegalArgumentException("O ID da escola não pode ser nulo.");
         }
         return escolaDAO.buscarPorId(id);
+    }
+
+    /**
+     * Retorna os indicadores resumidos da escola autenticada.
+     */
+    public ResumoEscola obterResumo(UUID escolaId) throws SQLException {
+        if (escolaId == null) {
+            throw new IllegalArgumentException("O ID da escola não pode ser nulo.");
+        }
+        return escolaDAO.obterResumo(escolaId);
     }
 }

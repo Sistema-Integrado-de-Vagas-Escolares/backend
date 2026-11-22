@@ -94,14 +94,3 @@ CREATE TABLE IF NOT EXISTS inscricao_criterios (
     pontos_obtidos NUMERIC(5, 2) NOT NULL CHECK (pontos_obtidos >= 0),
     CONSTRAINT uk_inscricao_criterio UNIQUE (inscricao_id, criterio_id)
 );
-
--- =============================================================================
--- Inserção de Dados Iniciais de Teste (Seed)
--- =============================================================================
-
-INSERT INTO criterios (nome, pontos_base, categoria) VALUES
-    ('Renda Familiar Baixa (até 1 SM)', 40.00, 'SOCIAL'),
-    ('Necessidade Especial (PcD)', 30.00, 'SOCIAL'),
-    ('Irmão Matriculado na Mesma Escola', 20.00, 'FAMILIAR'),
-    ('Proximidade Residencial (< 1 km)', 10.00, 'GEOGRAFICO')
-ON CONFLICT (nome) DO NOTHING;
