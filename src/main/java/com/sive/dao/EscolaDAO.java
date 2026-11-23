@@ -136,8 +136,8 @@ public class EscolaDAO {
 
         String sqlEmEspera = "SELECT COUNT(*) AS total "
                 + "FROM inscricoes i "
-                + "INNER JOIN turmas t ON t.id = i.turma_id "
-                + "WHERE t.escola_id = ? AND i.status = 'EM_ESPERA'";
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE COALESCE(i.escola_id, t.escola_id) = ? AND i.status = 'EM_ESPERA'";
 
         String sqlVagas = "SELECT COALESCE(SUM(vagas_disponiveis), 0) AS total "
                 + "FROM turmas WHERE escola_id = ?";
@@ -145,19 +145,25 @@ public class EscolaDAO {
         String sqlResponsaveis = "SELECT COUNT(DISTINCT ar.responsavel_id) AS total "
                 + "FROM aluno_responsaveis ar "
                 + "INNER JOIN inscricoes i ON i.aluno_id = ar.aluno_id "
-                + "INNER JOIN turmas t ON t.id = i.turma_id "
-                + "WHERE t.escola_id = ?";
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE COALESCE(i.escola_id, t.escola_id) = ?";
 
         String sqlAlunos = "SELECT COUNT(DISTINCT i.aluno_id) AS total "
                 + "FROM inscricoes i "
-                + "INNER JOIN turmas t ON t.id = i.turma_id "
-                + "WHERE t.escola_id = ?";
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE COALESCE(i.escola_id, t.escola_id) = ?";
+
+        String sqlMatriculados = "SELECT COUNT(*) AS total "
+                + "FROM inscricoes i "
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE COALESCE(i.escola_id, t.escola_id) = ? AND i.status = 'MATRICULADO'";
 
         try (Connection conn = Conexao.getConnection()) {
             int totalEmEspera = contarPorEscola(conn, sqlEmEspera, escolaId);
             int vagasDisponiveis = contarPorEscola(conn, sqlVagas, escolaId);
             int totalResponsaveis = contarPorEscola(conn, sqlResponsaveis, escolaId);
             int totalAlunos = contarPorEscola(conn, sqlAlunos, escolaId);
+            int totalMatriculados = contarPorEscola(conn, sqlMatriculados, escolaId);
 
             return new ResumoEscola(
                     escola,
@@ -165,7 +171,8 @@ public class EscolaDAO {
                     vagasDisponiveis,
                     escola.getCapacidadeTotal(),
                     totalResponsaveis,
-                    totalAlunos);
+                    totalAlunos,
+                    totalMatriculados);
         }
     }
 

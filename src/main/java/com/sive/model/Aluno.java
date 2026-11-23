@@ -1,32 +1,60 @@
 package com.sive.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
 public class Aluno extends Pessoa {
 
+    private String cpf;
     private LocalDate dataNascimento;
-    private String certidaoNascimento;
+    private Endereco endereco;
+    private BigDecimal rendaPerCapita;
     private boolean temNecessidadeEspecial;
 
     public Aluno() {
         super();
+        this.rendaPerCapita = BigDecimal.ZERO;
     }
 
-    public Aluno(String nome, LocalDate dataNascimento, String certidaoNascimento,
-            boolean temNecessidadeEspecial) {
+    public Aluno(String nome, String cpf, LocalDate dataNascimento, boolean temNecessidadeEspecial) {
         super(nome);
+        this.cpf = cpf;
         this.dataNascimento = dataNascimento;
-        this.certidaoNascimento = certidaoNascimento;
+        this.rendaPerCapita = BigDecimal.ZERO;
         this.temNecessidadeEspecial = temNecessidadeEspecial;
     }
 
-    public Aluno(UUID id, String nome, LocalDate dataNascimento, String certidaoNascimento,
+    public Aluno(UUID id, String nome, String cpf, LocalDate dataNascimento, boolean temNecessidadeEspecial) {
+        super(id, nome);
+        this.cpf = cpf;
+        this.dataNascimento = dataNascimento;
+        this.rendaPerCapita = BigDecimal.ZERO;
+        this.temNecessidadeEspecial = temNecessidadeEspecial;
+    }
+
+    public Aluno(
+            UUID id,
+            String nome,
+            String cpf,
+            LocalDate dataNascimento,
+            Endereco endereco,
+            BigDecimal rendaPerCapita,
             boolean temNecessidadeEspecial) {
         super(id, nome);
+        this.cpf = cpf;
         this.dataNascimento = dataNascimento;
-        this.certidaoNascimento = certidaoNascimento;
+        this.endereco = endereco;
+        this.rendaPerCapita = rendaPerCapita != null ? rendaPerCapita : BigDecimal.ZERO;
         this.temNecessidadeEspecial = temNecessidadeEspecial;
+    }
+
+    public String getCpf() {
+        return cpf;
+    }
+
+    public void setCpf(String cpf) {
+        this.cpf = cpf;
     }
 
     public LocalDate getDataNascimento() {
@@ -37,12 +65,20 @@ public class Aluno extends Pessoa {
         this.dataNascimento = dataNascimento;
     }
 
-    public String getCertidaoNascimento() {
-        return certidaoNascimento;
+    public Endereco getEndereco() {
+        return endereco;
     }
 
-    public void setCertidaoNascimento(String certidaoNascimento) {
-        this.certidaoNascimento = certidaoNascimento;
+    public void setEndereco(Endereco endereco) {
+        this.endereco = endereco;
+    }
+
+    public BigDecimal getRendaPerCapita() {
+        return rendaPerCapita;
+    }
+
+    public void setRendaPerCapita(BigDecimal rendaPerCapita) {
+        this.rendaPerCapita = rendaPerCapita;
     }
 
     public boolean isTemNecessidadeEspecial() {
@@ -55,12 +91,14 @@ public class Aluno extends Pessoa {
 
     @Override
     public String toString() {
-        return "Aluno{" +
-                "id=" + getId() +
-                ", nome='" + getNome() + '\'' +
-                ", dataNascimento=" + dataNascimento +
-                ", certidaoNascimento='" + certidaoNascimento + '\'' +
-                ", temNecessidadeEspecial=" + temNecessidadeEspecial +
-                '}';
+        return "Aluno{"
+                + "id=" + getId()
+                + ", nome='" + getNome() + '\''
+                + ", cpf='" + cpf + '\''
+                + ", dataNascimento=" + dataNascimento
+                + ", endereco=" + endereco
+                + ", rendaPerCapita=" + rendaPerCapita
+                + ", temNecessidadeEspecial=" + temNecessidadeEspecial
+                + '}';
     }
 }

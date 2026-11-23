@@ -15,7 +15,6 @@ public class Inscricao {
     private String protocolo;
     private LocalDateTime dataInscricao;
     private double pontuacaoTotal;
-    private int posicaoFila;
     private StatusInscricao status;
     private LocalDateTime dataChamada;
     private LocalDateTime createdAt;
@@ -48,7 +47,7 @@ public class Inscricao {
     }
 
     public Inscricao(UUID id, UUID alunoId, UUID turmaId, String protocolo,
-            LocalDateTime dataInscricao, double pontuacaoTotal, int posicaoFila,
+            LocalDateTime dataInscricao, double pontuacaoTotal,
             StatusInscricao status, LocalDateTime dataChamada, LocalDateTime createdAt) {
         this.id = id;
         this.alunoId = alunoId;
@@ -56,7 +55,6 @@ public class Inscricao {
         this.protocolo = protocolo;
         this.dataInscricao = dataInscricao;
         this.pontuacaoTotal = pontuacaoTotal;
-        this.posicaoFila = posicaoFila;
         this.status = status != null ? status : StatusInscricao.EM_ESPERA;
         this.dataChamada = dataChamada;
         this.createdAt = createdAt;
@@ -122,14 +120,6 @@ public class Inscricao {
         this.pontuacaoTotal = pontuacaoTotal;
     }
 
-    public int getPosicaoFila() {
-        return posicaoFila;
-    }
-
-    public void setPosicaoFila(int posicaoFila) {
-        this.posicaoFila = posicaoFila;
-    }
-
     public StatusInscricao getStatus() {
         return status;
     }
@@ -187,7 +177,6 @@ public class Inscricao {
                 ", protocolo='" + protocolo + '\'' +
                 ", dataInscricao=" + dataInscricao +
                 ", pontuacaoTotal=" + pontuacaoTotal +
-                ", posicaoFila=" + posicaoFila +
                 ", status=" + status +
                 ", dataChamada=" + dataChamada +
                 '}';

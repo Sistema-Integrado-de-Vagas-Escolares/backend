@@ -11,6 +11,7 @@ public class ResumoEscola {
     private int capacidadeTotal;
     private int totalResponsaveis;
     private int totalAlunos;
+    private int totalMatriculados;
 
     public ResumoEscola() {
     }
@@ -21,13 +22,15 @@ public class ResumoEscola {
             int vagasDisponiveis,
             int capacidadeTotal,
             int totalResponsaveis,
-            int totalAlunos) {
+            int totalAlunos,
+            int totalMatriculados) {
         this.escola = escola;
         this.totalEmEspera = totalEmEspera;
         this.vagasDisponiveis = vagasDisponiveis;
         this.capacidadeTotal = capacidadeTotal;
         this.totalResponsaveis = totalResponsaveis;
         this.totalAlunos = totalAlunos;
+        this.totalMatriculados = totalMatriculados;
     }
 
     public Escola getEscola() {
@@ -76,6 +79,14 @@ public class ResumoEscola {
 
     public void setTotalAlunos(int totalAlunos) {
         this.totalAlunos = totalAlunos;
+    }
+
+    public int getTotalMatriculados() {
+        return totalMatriculados;
+    }
+
+    public void setTotalMatriculados(int totalMatriculados) {
+        this.totalMatriculados = totalMatriculados;
     }
 
     @Override

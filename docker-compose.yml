@@ -1,5 +1,6 @@
 services:
   sive-backend:
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile
@@ -34,8 +35,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./database/seeds/01_criterios.sql:/docker-entrypoint-initdb.d/02-seed-criterios.sql
-      - ./database/seeds/02_usuario_escola.sql:/docker-entrypoint-initdb.d/03-seed-usuario-escola.sql
+      - ./database/seeds/local.sql:/docker-entrypoint-initdb.d/02-seed-local.sql
 
 volumes:
   postgres_data:

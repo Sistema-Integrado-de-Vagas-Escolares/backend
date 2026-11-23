@@ -2,9 +2,9 @@ package com.sive.service;
 
 import com.sive.dao.ResponsavelDAO;
 import com.sive.model.Responsavel;
+import com.sive.model.ResponsavelResumo;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
@@ -23,8 +23,7 @@ public class ResponsavelService {
 
         Responsavel existente = responsavelDAO.buscarPorCpf(responsavel.getCpf());
         if (existente != null) {
-            throw new IllegalArgumentException(
-                    "Já existe um responsável cadastrado com o CPF informado: " + responsavel.getCpf());
+            throw new IllegalArgumentException("Já existe um responsável cadastrado com o CPF informado.");
         }
 
         return responsavelDAO.inserir(responsavel);
@@ -48,6 +47,10 @@ public class ResponsavelService {
         return responsavelDAO.listar();
     }
 
+    public List<ResponsavelResumo> listarComTotalFilhos(String busca, Boolean comFilhos) throws SQLException {
+        return responsavelDAO.listarComTotalFilhos(busca, comFilhos);
+    }
+
     private void validar(Responsavel responsavel) {
         if (responsavel == null) {
             throw new IllegalArgumentException("Os dados do responsável não podem ser nulos.");
@@ -60,12 +63,6 @@ public class ResponsavelService {
         }
         if (responsavel.getTelefone() == null || responsavel.getTelefone().trim().isEmpty()) {
             throw new IllegalArgumentException("O telefone do responsável é obrigatório.");
-        }
-        if (responsavel.getRendaFamiliar() == null) {
-            throw new IllegalArgumentException("A renda familiar do responsável é obrigatória.");
-        }
-        if (responsavel.getRendaFamiliar().compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("A renda familiar não pode ser um valor negativo.");
         }
     }
 }
