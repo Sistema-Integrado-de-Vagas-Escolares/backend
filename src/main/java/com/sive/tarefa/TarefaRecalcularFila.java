@@ -10,6 +10,10 @@ import java.util.UUID;
 
 import com.sive.dao.Conexao;
 
+/**
+ * Tarefa concorrente (Runnable) para reordenar e reclassificar as posições
+ * da fila de espera de uma turma com base na pontuação total (DESC) e data de inscrição (ASC).
+ */
 public class TarefaRecalcularFila implements Runnable {
 
     private final UUID turmaId;
@@ -33,17 +37,17 @@ public class TarefaRecalcularFila implements Runnable {
                 + "ORDER BY pontuacao_total DESC, data_inscricao ASC";
 
         try {
+            // Simulação de processamento concorrente em lote
             Thread.sleep(100);
 
             List<UUID> inscricoesOrdenadas = new ArrayList<>();
 
-            try (Connection conn = Conexao.getConnection()) {
-                try (PreparedStatement stmt = conn.prepareStatement(sqlBuscarFila)) {
-                    stmt.setObject(1, turmaId);
-                    try (ResultSet rs = stmt.executeQuery()) {
-                        while (rs.next()) {
-                            inscricoesOrdenadas.add((UUID) rs.getObject("id"));
-                        }
+            try (Connection conn = Conexao.getConnection();
+                    PreparedStatement stmt = conn.prepareStatement(sqlBuscarFila)) {
+                stmt.setObject(1, turmaId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        inscricoesOrdenadas.add((UUID) rs.getObject("id"));
                     }
                 }
             }

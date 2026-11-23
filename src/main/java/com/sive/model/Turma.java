@@ -7,27 +7,48 @@ public class Turma {
     private UUID id;
     private UUID escolaId;
     private String serieAno;
+    private String nome;
     private Turno turno;
     private int vagasTotais;
     private int vagasDisponiveis;
     private LocalDateTime dataCriacao;
 
     public Turma() {
+        this.nome = "Turma A";
     }
 
     public Turma(UUID escolaId, String serieAno, Turno turno, int vagasTotais, int vagasDisponiveis) {
+        this(escolaId, serieAno, "Turma A", turno, vagasTotais, vagasDisponiveis);
+    }
+
+    public Turma(
+            UUID escolaId,
+            String serieAno,
+            String nome,
+            Turno turno,
+            int vagasTotais,
+            int vagasDisponiveis) {
         this.escolaId = escolaId;
         this.serieAno = serieAno;
+        this.nome = nome;
         this.turno = turno;
         this.vagasTotais = vagasTotais;
         this.vagasDisponiveis = vagasDisponiveis;
     }
 
-    public Turma(UUID id, UUID escolaId, String serieAno, Turno turno, int vagasTotais, int vagasDisponiveis,
+    public Turma(
+            UUID id,
+            UUID escolaId,
+            String serieAno,
+            String nome,
+            Turno turno,
+            int vagasTotais,
+            int vagasDisponiveis,
             LocalDateTime dataCriacao) {
         this.id = id;
         this.escolaId = escolaId;
         this.serieAno = serieAno;
+        this.nome = nome;
         this.turno = turno;
         this.vagasTotais = vagasTotais;
         this.vagasDisponiveis = vagasDisponiveis;
@@ -56,6 +77,14 @@ public class Turma {
 
     public void setSerieAno(String serieAno) {
         this.serieAno = serieAno;
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public void setNome(String nome) {
+        this.nome = nome;
     }
 
     public Turno getTurno() {
@@ -96,11 +125,11 @@ public class Turma {
                 "id=" + id +
                 ", escolaId=" + escolaId +
                 ", serieAno='" + serieAno + '\'' +
+                ", nome='" + nome + '\'' +
                 ", turno=" + turno +
                 ", vagasTotais=" + vagasTotais +
                 ", vagasDisponiveis=" + vagasDisponiveis +
                 ", dataCriacao=" + dataCriacao +
                 '}';
     }
-
 }

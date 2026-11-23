@@ -22,8 +22,8 @@ public class TurmaDao {
      * Insere uma nova turma no banco de dados.
      */
     public Turma inserir(Turma turma) throws SQLException {
-        String sql = "INSERT INTO turmas (id, escola_id, serie_ano, turno, vagas_totais, vagas_disponiveis) "
-                + "VALUES (?, ?, ?, ?, ?, ?) RETURNING created_at";
+        String sql = "INSERT INTO turmas (id, escola_id, serie_ano, nome, turno, vagas_totais, vagas_disponiveis) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING created_at";
 
         if (turma.getId() == null) {
             turma.setId(UUID.randomUUID());
@@ -35,9 +35,10 @@ public class TurmaDao {
             stmt.setObject(1, turma.getId());
             stmt.setObject(2, turma.getEscolaId());
             stmt.setString(3, turma.getSerieAno());
-            stmt.setString(4, turma.getTurno().name());
-            stmt.setInt(5, turma.getVagasTotais());
-            stmt.setInt(6, turma.getVagasDisponiveis());
+            stmt.setString(4, turma.getNome());
+            stmt.setString(5, turma.getTurno().name());
+            stmt.setInt(6, turma.getVagasTotais());
+            stmt.setInt(7, turma.getVagasDisponiveis());
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -56,8 +57,8 @@ public class TurmaDao {
      */
     public List<Turma> listarPorEscola(UUID escolaId) throws SQLException {
         List<Turma> turmas = new ArrayList<>();
-        String sql = "SELECT id, escola_id, serie_ano, turno, vagas_totais, vagas_disponiveis, created_at "
-                + "FROM turmas WHERE escola_id = ? ORDER BY serie_ano ASC";
+        String sql = "SELECT id, escola_id, serie_ano, nome, turno, vagas_totais, vagas_disponiveis, created_at "
+                + "FROM turmas WHERE escola_id = ? ORDER BY serie_ano ASC, nome ASC";
 
         try (Connection conn = Conexao.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -76,6 +77,7 @@ public class TurmaDao {
                             (UUID) rs.getObject("id"),
                             (UUID) rs.getObject("escola_id"),
                             rs.getString("serie_ano"),
+                            rs.getString("nome"),
                             turno,
                             rs.getInt("vagas_totais"),
                             rs.getInt("vagas_disponiveis"),
@@ -91,7 +93,7 @@ public class TurmaDao {
      * Busca uma turma pelo seu identificador único (UUID).
      */
     public Turma buscarPorId(UUID id) throws SQLException {
-        String sql = "SELECT id, escola_id, serie_ano, turno, vagas_totais, vagas_disponiveis, created_at FROM turmas WHERE id = ?";
+        String sql = "SELECT id, escola_id, serie_ano, nome, turno, vagas_totais, vagas_disponiveis, created_at FROM turmas WHERE id = ?";
 
         try (Connection conn = Conexao.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -110,6 +112,7 @@ public class TurmaDao {
                             (UUID) rs.getObject("id"),
                             (UUID) rs.getObject("escola_id"),
                             rs.getString("serie_ano"),
+                            rs.getString("nome"),
                             turno,
                             rs.getInt("vagas_totais"),
                             rs.getInt("vagas_disponiveis"),
@@ -130,6 +133,50 @@ public class TurmaDao {
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, novoSaldo);
             stmt.setObject(2, id);
+            stmt.executeUpdate();
+        }
+    }
+
+    public Turma atualizar(Turma turma) throws SQLException {
+        String sql = "UPDATE turmas SET serie_ano = ?, nome = ?, turno = ?, vagas_totais = ?, vagas_disponiveis = ? "
+                + "WHERE id = ? AND escola_id = ?";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, turma.getSerieAno());
+            stmt.setString(2, turma.getNome());
+            stmt.setString(3, turma.getTurno().name());
+            stmt.setInt(4, turma.getVagasTotais());
+            stmt.setInt(5, turma.getVagasDisponiveis());
+            stmt.setObject(6, turma.getId());
+            stmt.setObject(7, turma.getEscolaId());
+            stmt.executeUpdate();
+        }
+        return buscarPorId(turma.getId());
+    }
+
+    public int contarInscricoesVinculadas(UUID turmaId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM inscricoes WHERE turma_id = ?";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, turmaId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        }
+        return 0;
+    }
+
+    public void excluir(UUID escolaId, UUID turmaId) throws SQLException {
+        String sql = "DELETE FROM turmas WHERE id = ? AND escola_id = ?";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, turmaId);
+            stmt.setObject(2, escolaId);
             stmt.executeUpdate();
         }
     }

@@ -1,329 +1,288 @@
 package com.sive.dao;
 
+import com.sive.model.Aluno;
 import com.sive.model.Inscricao;
-import com.sive.model.InscricaoCriterio;
+import com.sive.model.InscricaoEscolaResumo;
 import com.sive.model.StatusInscricao;
+import com.sive.security.CpfCryptoService;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Data Access Object (DAO) para consultas e transições de inscrições da escola.
+ */
 public class InscricaoDAO {
 
-    public Inscricao inserir(Inscricao inscricao) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            boolean originalAutoCommit = conn.getAutoCommit();
-            try {
-                conn.setAutoCommit(false);
-                Inscricao resultado = inserir(inscricao, conn);
-                if (inscricao.getCriterios() != null && !inscricao.getCriterios().isEmpty()) {
-                    inserirCriterios(inscricao.getId(), inscricao.getCriterios(), conn);
-                }
-                conn.commit();
-                return resultado;
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            } finally {
-                conn.setAutoCommit(originalAutoCommit);
+    /**
+     * Lista as inscrições da escola filtradas por status, busca e turma,
+     * ordenadas por pontuação total (DESC) e data de inscrição (ASC),
+     * calculando a posição dinamicamente para EM_ESPERA e CHAMADO.
+     */
+    public List<InscricaoEscolaResumo> listarPorEscola(
+            UUID escolaId,
+            StatusInscricao status,
+            String busca,
+            String serieAno) throws SQLException {
+        List<InscricaoEscolaResumo> lista = new ArrayList<>();
+
+        StringBuilder sql = new StringBuilder(
+                "WITH fila_ordenada AS ( "
+                        + "  SELECT i.id, i.aluno_id, i.turma_id, i.tipo_vaga, i.serie_ano, i.turno, i.protocolo, "
+                        + "         i.pontuacao_total, i.status, i.data_inscricao, i.data_chamada, "
+                        + "         ROW_NUMBER() OVER (PARTITION BY i.status ORDER BY i.pontuacao_total DESC, i.data_inscricao ASC) AS posicao_calculada "
+                        + "  FROM inscricoes i "
+                        + "  LEFT JOIN turmas t ON t.id = i.turma_id "
+                        + "  WHERE COALESCE(i.escola_id, t.escola_id) = ? "
+                        + ") "
+                        + "SELECT DISTINCT ON (f.id) "
+                        + "  f.id, f.aluno_id, a.nome AS aluno_nome, a.data_nascimento AS aluno_data_nascimento, "
+                        + "  f.turma_id, "
+                        + "  COALESCE(t.serie_ano, f.serie_ano, CASE f.tipo_vaga WHEN 'CRECHE' THEN 'Creche' WHEN 'FUNDAMENTAL' THEN 'Fundamental' ELSE 'Lista de Espera' END) AS etapa_ou_turma, "
+                        + "  f.tipo_vaga, f.turno, f.protocolo, f.pontuacao_total, f.status, "
+                        + "  f.data_inscricao, f.data_chamada, f.posicao_calculada "
+                        + "FROM fila_ordenada f "
+                        + "INNER JOIN alunos a ON a.id = f.aluno_id "
+                        + "LEFT JOIN turmas t ON t.id = f.turma_id "
+                        + "LEFT JOIN aluno_responsaveis ar ON ar.aluno_id = a.id "
+                        + "LEFT JOIN responsaveis r ON r.id = ar.responsavel_id "
+                        + "WHERE f.status = ? ");
+
+        boolean temSerieAno = serieAno != null && !serieAno.trim().isEmpty();
+        if (temSerieAno) {
+            sql.append("AND LOWER(COALESCE(t.serie_ano, f.serie_ano)) = LOWER(?) ");
+        }
+
+        boolean temBusca = busca != null && !busca.trim().isEmpty();
+        String digitosBusca = temBusca ? CpfCryptoService.normalizarDigitos(busca) : "";
+        boolean buscaPorCpfHash = temBusca && digitosBusca.length() == 11;
+
+        if (buscaPorCpfHash) {
+            sql.append("AND (a.cpf_hash = ? OR r.cpf_hash = ?) ");
+        } else if (temBusca) {
+            sql.append("AND (LOWER(a.nome) LIKE ? OR LOWER(r.nome) LIKE ?) ");
+        }
+
+        sql.append("ORDER BY f.id");
+
+        String sqlFinal = "SELECT * FROM (" + sql + ") sub ORDER BY sub.pontuacao_total DESC, sub.data_inscricao ASC";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sqlFinal)) {
+
+            int idx = 1;
+            stmt.setObject(idx++, escolaId);
+            stmt.setString(idx++, status.name());
+
+            if (temSerieAno) {
+                stmt.setString(idx++, serieAno.trim());
             }
-        }
-    }
 
-    public Inscricao inserir(Inscricao inscricao, Connection conn) throws SQLException {
-        String sql = "INSERT INTO inscricoes (id, aluno_id, turma_id, protocolo, data_inscricao, pontuacao_total, status, data_chamada) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-
-        if (inscricao.getId() == null) {
-            inscricao.setId(UUID.randomUUID());
-        }
-        if (inscricao.getDataInscricao() == null) {
-            inscricao.setDataInscricao(LocalDateTime.now());
-        }
-        if (inscricao.getStatus() == null) {
-            inscricao.setStatus(StatusInscricao.EM_ESPERA);
-        }
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, inscricao.getId());
-            stmt.setObject(2, inscricao.getAlunoId());
-            stmt.setObject(3, inscricao.getTurmaId());
-            stmt.setString(4, inscricao.getProtocolo());
-            stmt.setTimestamp(5, Timestamp.valueOf(inscricao.getDataInscricao()));
-            stmt.setBigDecimal(6, BigDecimal.valueOf(inscricao.getPontuacaoTotal()));
-            stmt.setString(7, inscricao.getStatus().name());
-            stmt.setTimestamp(8, inscricao.getDataChamada() != null ? Timestamp.valueOf(inscricao.getDataChamada()) : null);
-
-            stmt.executeUpdate();
-            return inscricao;
-        }
-    }
-
-    public Inscricao buscarPorId(UUID id) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            return buscarPorId(id, conn);
-        }
-    }
-
-    public Inscricao buscarPorId(UUID id, Connection conn) throws SQLException {
-        String sql = "SELECT id, aluno_id, turma_id, protocolo, data_inscricao, pontuacao_total, status, data_chamada, created_at "
-                + "FROM inscricoes WHERE id = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, id);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    Inscricao inscricao = mapearResultSet(rs);
-                    inscricao.setCriterios(buscarCriteriosPorInscricao(inscricao.getId(), conn));
-                    return inscricao;
-                }
+            if (buscaPorCpfHash) {
+                String hash = CpfCryptoService.gerarHash(digitosBusca);
+                stmt.setString(idx++, hash);
+                stmt.setString(idx++, hash);
+            } else if (temBusca) {
+                String termoTexto = "%" + busca.trim().toLowerCase() + "%";
+                stmt.setString(idx++, termoTexto);
+                stmt.setString(idx++, termoTexto);
             }
-        }
-        return null;
-    }
-
-    public Inscricao buscarPorProtocolo(String protocolo) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            return buscarPorProtocolo(protocolo, conn);
-        }
-    }
-
-    public Inscricao buscarPorProtocolo(String protocolo, Connection conn) throws SQLException {
-        String sql = "SELECT id, aluno_id, turma_id, protocolo, data_inscricao, pontuacao_total, status, data_chamada, created_at "
-                + "FROM inscricoes WHERE protocolo = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, protocolo);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    Inscricao inscricao = mapearResultSet(rs);
-                    inscricao.setCriterios(buscarCriteriosPorInscricao(inscricao.getId(), conn));
-                    return inscricao;
-                }
-            }
-        }
-        return null;
-    }
-
-    public Inscricao buscarPorAlunoETurma(UUID alunoId, UUID turmaId) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            return buscarPorAlunoETurma(alunoId, turmaId, conn);
-        }
-    }
-
-    public Inscricao buscarPorAlunoETurma(UUID alunoId, UUID turmaId, Connection conn) throws SQLException {
-        String sql = "SELECT id, aluno_id, turma_id, protocolo, data_inscricao, pontuacao_total, status, data_chamada, created_at "
-                + "FROM inscricoes WHERE aluno_id = ? AND turma_id = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, alunoId);
-            stmt.setObject(2, turmaId);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    Inscricao inscricao = mapearResultSet(rs);
-                    inscricao.setCriterios(buscarCriteriosPorInscricao(inscricao.getId(), conn));
-                    return inscricao;
-                }
-            }
-        }
-        return null;
-    }
-
-    public List<Inscricao> listarPorTurma(UUID turmaId) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            return listarPorTurma(turmaId, conn);
-        }
-    }
-
-    public List<Inscricao> listarPorTurma(UUID turmaId, Connection conn) throws SQLException {
-        List<Inscricao> lista = new ArrayList<>();
-        String sql = "SELECT id, aluno_id, turma_id, protocolo, data_inscricao, pontuacao_total, status, data_chamada, created_at "
-                + "FROM inscricoes WHERE turma_id = ? "
-                + "ORDER BY pontuacao_total DESC, data_inscricao ASC";
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, turmaId);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    lista.add(mapearResultSet(rs));
+                    Date dataNascSql = rs.getDate("aluno_data_nascimento");
+                    Timestamp dataInscSql = rs.getTimestamp("data_inscricao");
+                    Timestamp dataChamadaSql = rs.getTimestamp("data_chamada");
+                    StatusInscricao itemStatus = StatusInscricao.valueOf(rs.getString("status"));
+                    Integer posicao = itemStatus == StatusInscricao.MATRICULADO
+                            ? null
+                            : rs.getInt("posicao_calculada");
+
+                    lista.add(new InscricaoEscolaResumo(
+                            (UUID) rs.getObject("id"),
+                            (UUID) rs.getObject("aluno_id"),
+                            rs.getString("aluno_nome"),
+                            dataNascSql != null ? dataNascSql.toLocalDate() : null,
+                            (UUID) rs.getObject("turma_id"),
+                            rs.getString("etapa_ou_turma"),
+                            rs.getString("tipo_vaga"),
+                            rs.getString("turno"),
+                            rs.getString("protocolo"),
+                            rs.getBigDecimal("pontuacao_total"),
+                            itemStatus,
+                            dataInscSql != null ? dataInscSql.toLocalDateTime() : null,
+                            dataChamadaSql != null ? dataChamadaSql.toLocalDateTime() : null,
+                            posicao));
                 }
             }
         }
         return lista;
     }
 
-    public List<Inscricao> listarPorTurmaEStatus(UUID turmaId, StatusInscricao status) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            return listarPorTurmaEStatus(turmaId, status, conn);
+    /**
+     * Retorna os totais por status de inscrição da escola.
+     */
+    public Map<StatusInscricao, Integer> contarPorStatus(UUID escolaId) throws SQLException {
+        Map<StatusInscricao, Integer> contagens = new EnumMap<>(StatusInscricao.class);
+        String sql = "SELECT i.status, COUNT(*) AS total "
+                + "FROM inscricoes i "
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE COALESCE(i.escola_id, t.escola_id) = ? "
+                + "GROUP BY i.status";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, escolaId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    StatusInscricao status = StatusInscricao.fromString(rs.getString("status"));
+                    if (status != null) {
+                        contagens.put(status, rs.getInt("total"));
+                    }
+                }
+            }
+        }
+        return contagens;
+    }
+
+    /**
+     * Busca dados básicos da inscrição garantindo vínculo com a escola.
+     */
+    public InscricaoEscolaResumo buscarPorIdEEscola(UUID inscricaoId, UUID escolaId) throws SQLException {
+        String sql = "SELECT i.id, i.aluno_id, a.nome AS aluno_nome, a.data_nascimento AS aluno_data_nascimento, "
+                + "i.turma_id, i.tipo_vaga, i.turno, i.protocolo, i.pontuacao_total, i.status, i.data_inscricao, i.data_chamada "
+                + "FROM inscricoes i "
+                + "INNER JOIN alunos a ON a.id = i.aluno_id "
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE i.id = ? AND COALESCE(i.escola_id, t.escola_id) = ?";
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, inscricaoId);
+            stmt.setObject(2, escolaId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Date dataNascSql = rs.getDate("aluno_data_nascimento");
+                    Timestamp dataInscSql = rs.getTimestamp("data_inscricao");
+                    Timestamp dataChamadaSql = rs.getTimestamp("data_chamada");
+                    return new InscricaoEscolaResumo(
+                            (UUID) rs.getObject("id"),
+                            (UUID) rs.getObject("aluno_id"),
+                            rs.getString("aluno_nome"),
+                            dataNascSql != null ? dataNascSql.toLocalDate() : null,
+                            (UUID) rs.getObject("turma_id"),
+                            null,
+                            rs.getString("tipo_vaga"),
+                            rs.getString("turno"),
+                            rs.getString("protocolo"),
+                            rs.getBigDecimal("pontuacao_total"),
+                            StatusInscricao.valueOf(rs.getString("status")),
+                            dataInscSql != null ? dataInscSql.toLocalDateTime() : null,
+                            dataChamadaSql != null ? dataChamadaSql.toLocalDateTime() : null,
+                            null);
+                }
+            }
+        }
+        return null;
+    }
+
+    public void chamar(UUID inscricaoId) throws SQLException {
+        String sql = "UPDATE inscricoes SET status = 'CHAMADO', data_chamada = CURRENT_TIMESTAMP WHERE id = ?";
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, inscricaoId);
+            stmt.executeUpdate();
         }
     }
 
-    public List<Inscricao> listarPorTurmaEStatus(UUID turmaId, StatusInscricao status, Connection conn) throws SQLException {
-        List<Inscricao> lista = new ArrayList<>();
-        String sql = "SELECT id, aluno_id, turma_id, protocolo, data_inscricao, pontuacao_total, status, data_chamada, created_at "
-                + "FROM inscricoes WHERE turma_id = ? AND status = ? "
-                + "ORDER BY pontuacao_total DESC, data_inscricao ASC";
+    public void atualizarStatusChamado(
+            Connection conn,
+            UUID inscricaoId,
+            StatusInscricao novoStatus,
+            UUID turmaId,
+            boolean limparDataChamada) throws SQLException {
+        StringBuilder sql = new StringBuilder("UPDATE inscricoes SET status = ?");
+        if (turmaId != null) {
+            sql.append(", turma_id = ?");
+        }
+        if (limparDataChamada) {
+            sql.append(", data_chamada = NULL");
+        }
+        sql.append(" WHERE id = ?");
 
+        try (PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            stmt.setString(idx++, novoStatus.name());
+            if (turmaId != null) {
+                stmt.setObject(idx++, turmaId);
+            }
+            stmt.setObject(idx++, inscricaoId);
+            stmt.executeUpdate();
+        }
+    }
+
+    public boolean decrementarVagaTurma(Connection conn, UUID turmaId) throws SQLException {
+        String sql = "UPDATE turmas SET vagas_disponiveis = vagas_disponiveis - 1 "
+                + "WHERE id = ? AND vagas_disponiveis > 0";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, turmaId);
-            stmt.setString(2, status.name());
+            return stmt.executeUpdate() > 0;
+        }
+    }
 
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    lista.add(mapearResultSet(rs));
-                }
+    public List<Inscricao> listarInscricoesEmEsperaParaRecalculo(Connection conn) throws SQLException {
+        String sql = "SELECT i.id AS inscricao_id, i.aluno_id, "
+                + "a.renda_per_capita, a.tem_necessidade_especial, a.vulnerabilidade_socioeconomica, "
+                + "a.responsavel_solo, a.mora_de_aluguel, a.bolsa_familia, a.bpc_loas, a.irmao_matriculado "
+                + "FROM inscricoes i "
+                + "INNER JOIN alunos a ON a.id = i.aluno_id "
+                + "WHERE i.status = 'EM_ESPERA'";
+
+        List<Inscricao> lista = new ArrayList<>();
+        try (PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                Aluno aluno = new Aluno();
+                aluno.setId((UUID) rs.getObject("aluno_id"));
+                aluno.setRendaPerCapita(rs.getBigDecimal("renda_per_capita"));
+                aluno.setTemNecessidadeEspecial(rs.getBoolean("tem_necessidade_especial"));
+                aluno.setVulnerabilidadeSocioeconomica(rs.getBoolean("vulnerabilidade_socioeconomica"));
+                aluno.setResponsavelSolo(rs.getBoolean("responsavel_solo"));
+                aluno.setMoraDeAluguel(rs.getBoolean("mora_de_aluguel"));
+                aluno.setBolsaFamilia(rs.getBoolean("bolsa_familia"));
+                aluno.setBpcLoas(rs.getBoolean("bpc_loas"));
+                aluno.setIrmaoMatriculado(rs.getBoolean("irmao_matriculado"));
+
+                Inscricao inscricao = new Inscricao();
+                inscricao.setId((UUID) rs.getObject("inscricao_id"));
+                inscricao.setAlunoId(aluno.getId());
+                inscricao.setAluno(aluno);
+                lista.add(inscricao);
             }
         }
         return lista;
     }
 
-    public void atualizarStatus(UUID id, StatusInscricao novoStatus) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            atualizarStatus(id, novoStatus, conn);
-        }
-    }
-
-    public void atualizarStatus(UUID id, StatusInscricao novoStatus, Connection conn) throws SQLException {
-        if (novoStatus == StatusInscricao.CHAMADO) {
-            atualizarStatus(id, novoStatus, LocalDateTime.now(), conn);
-        } else {
-            String sql = "UPDATE inscricoes SET status = ? WHERE id = ?";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, novoStatus.name());
-                stmt.setObject(2, id);
-                stmt.executeUpdate();
-            }
-        }
-    }
-
-    public void atualizarStatus(UUID id, StatusInscricao novoStatus, LocalDateTime dataChamada, Connection conn) throws SQLException {
-        String sql = "UPDATE inscricoes SET status = ?, data_chamada = ? WHERE id = ?";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, novoStatus.name());
-            stmt.setTimestamp(2, dataChamada != null ? Timestamp.valueOf(dataChamada) : null);
-            stmt.setObject(3, id);
-            stmt.executeUpdate();
-        }
-    }
-
-    public void atualizarPontuacao(UUID id, double pontuacaoTotal) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            atualizarPontuacao(id, pontuacaoTotal, conn);
-        }
-    }
-
-    public void atualizarPontuacao(UUID id, double pontuacaoTotal, Connection conn) throws SQLException {
+    public void atualizarPontuacaoTotal(
+            Connection conn,
+            UUID inscricaoId,
+            BigDecimal pontuacaoTotal) throws SQLException {
         String sql = "UPDATE inscricoes SET pontuacao_total = ? WHERE id = ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setBigDecimal(1, BigDecimal.valueOf(pontuacaoTotal));
-            stmt.setObject(2, id);
+            stmt.setBigDecimal(1, pontuacaoTotal != null ? pontuacaoTotal : BigDecimal.ZERO);
+            stmt.setObject(2, inscricaoId);
             stmt.executeUpdate();
         }
-    }
-
-    public void inserirCriterios(UUID inscricaoId, List<InscricaoCriterio> criterios) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            boolean originalAutoCommit = conn.getAutoCommit();
-            try {
-                conn.setAutoCommit(false);
-                inserirCriterios(inscricaoId, criterios, conn);
-                conn.commit();
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            } finally {
-                conn.setAutoCommit(originalAutoCommit);
-            }
-        }
-    }
-
-    public void inserirCriterios(UUID inscricaoId, List<InscricaoCriterio> criterios, Connection conn) throws SQLException {
-        if (criterios == null || criterios.isEmpty()) {
-            return;
-        }
-        String sql = "INSERT INTO inscricao_criterios (id, inscricao_id, criterio_id, pontos_obtidos) VALUES (?, ?, ?, ?)";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            for (InscricaoCriterio c : criterios) {
-                if (c.getId() == null) {
-                    c.setId(UUID.randomUUID());
-                }
-                stmt.setObject(1, c.getId());
-                stmt.setObject(2, inscricaoId != null ? inscricaoId : c.getInscricaoId());
-                stmt.setObject(3, c.getCriterioId());
-                stmt.setBigDecimal(4, BigDecimal.valueOf(c.getPontosObtidos()));
-                stmt.addBatch();
-            }
-            stmt.executeBatch();
-        }
-    }
-
-    public List<InscricaoCriterio> buscarCriteriosPorInscricao(UUID inscricaoId) throws SQLException {
-        try (Connection conn = Conexao.getConnection()) {
-            return buscarCriteriosPorInscricao(inscricaoId, conn);
-        }
-    }
-
-    public List<InscricaoCriterio> buscarCriteriosPorInscricao(UUID inscricaoId, Connection conn) throws SQLException {
-        List<InscricaoCriterio> lista = new ArrayList<>();
-        String sql = "SELECT id, inscricao_id, criterio_id, pontos_obtidos FROM inscricao_criterios WHERE inscricao_id = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, inscricaoId);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    BigDecimal pontosBd = rs.getBigDecimal("pontos_obtidos");
-                    double pontos = pontosBd != null ? pontosBd.doubleValue() : 0.0;
-                    InscricaoCriterio ic = new InscricaoCriterio(
-                            (UUID) rs.getObject("id"),
-                            (UUID) rs.getObject("inscricao_id"),
-                            (UUID) rs.getObject("criterio_id"),
-                            pontos
-                    );
-                    lista.add(ic);
-                }
-            }
-        }
-        return lista;
-    }
-
-    private Inscricao mapearResultSet(ResultSet rs) throws SQLException {
-        Timestamp dataInscricaoTs = rs.getTimestamp("data_inscricao");
-        LocalDateTime dataInscricao = dataInscricaoTs != null ? dataInscricaoTs.toLocalDateTime() : null;
-
-        Timestamp dataChamadaTs = rs.getTimestamp("data_chamada");
-        LocalDateTime dataChamada = dataChamadaTs != null ? dataChamadaTs.toLocalDateTime() : null;
-
-        Timestamp createdAtTs = rs.getTimestamp("created_at");
-        LocalDateTime createdAt = createdAtTs != null ? createdAtTs.toLocalDateTime() : null;
-
-        BigDecimal pontuacaoBigDecimal = rs.getBigDecimal("pontuacao_total");
-        double pontuacaoTotal = pontuacaoBigDecimal != null ? pontuacaoBigDecimal.doubleValue() : 0.0;
-
-        String statusStr = rs.getString("status");
-        StatusInscricao status = StatusInscricao.fromString(statusStr);
-
-        return new Inscricao(
-                (UUID) rs.getObject("id"),
-                (UUID) rs.getObject("aluno_id"),
-                (UUID) rs.getObject("turma_id"),
-                rs.getString("protocolo"),
-                dataInscricao,
-                pontuacaoTotal,
-                status,
-                dataChamada,
-                createdAt
-        );
     }
 }

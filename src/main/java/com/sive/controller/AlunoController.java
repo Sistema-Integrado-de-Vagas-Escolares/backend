@@ -89,14 +89,14 @@ public class AlunoController {
             aluno.setNome(nome.toString());
         }
 
+        Object cpf = payload.get("cpf");
+        if (cpf != null) {
+            aluno.setCpf(cpf.toString());
+        }
+
         Object dataNascimento = payload.get("dataNascimento");
         if (dataNascimento != null) {
             aluno.setDataNascimento(java.time.LocalDate.parse(dataNascimento.toString()));
-        }
-
-        Object certidao = payload.get("certidaoNascimento");
-        if (certidao != null) {
-            aluno.setCertidaoNascimento(certidao.toString());
         }
 
         Object necessidade = payload.get("temNecessidadeEspecial");

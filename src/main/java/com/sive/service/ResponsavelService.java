@@ -2,9 +2,11 @@ package com.sive.service;
 
 import com.sive.dao.ResponsavelDAO;
 import com.sive.model.Responsavel;
+import com.sive.model.ResponsavelDetalhe;
+import com.sive.model.ResponsavelResumo;
+import com.sive.security.CpfCryptoService;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
@@ -23,8 +25,7 @@ public class ResponsavelService {
 
         Responsavel existente = responsavelDAO.buscarPorCpf(responsavel.getCpf());
         if (existente != null) {
-            throw new IllegalArgumentException(
-                    "Já existe um responsável cadastrado com o CPF informado: " + responsavel.getCpf());
+            throw new IllegalArgumentException("Já existe um responsável cadastrado com o CPF informado.");
         }
 
         return responsavelDAO.inserir(responsavel);
@@ -48,6 +49,74 @@ public class ResponsavelService {
         return responsavelDAO.listar();
     }
 
+    public List<ResponsavelResumo> listarComTotalFilhos(String busca, Boolean comFilhos) throws SQLException {
+        return responsavelDAO.listarComTotalFilhos(busca, comFilhos);
+    }
+
+    public ResponsavelDetalhe buscarDetalhePorEscola(UUID escolaId, UUID responsavelId) throws SQLException {
+        return buscarDetalhePorEscola(escolaId, responsavelId, false);
+    }
+
+    public ResponsavelDetalhe buscarDetalhePorEscola(
+            UUID escolaId,
+            UUID responsavelId,
+            boolean incluirCpfCompleto) throws SQLException {
+        if (escolaId == null || responsavelId == null) {
+            throw new IllegalArgumentException("Os identificadores da escola e do responsável são obrigatórios.");
+        }
+        ResponsavelDetalhe detalhe = responsavelDAO.buscarDetalhePorEscola(escolaId, responsavelId, incluirCpfCompleto);
+        if (detalhe == null) {
+            throw new IllegalArgumentException("Responsável não encontrado.");
+        }
+        return detalhe;
+    }
+
+    public ResponsavelDetalhe atualizarParaEscola(
+            UUID escolaId,
+            UUID responsavelId,
+            Responsavel dados) throws SQLException {
+        if (escolaId == null || responsavelId == null) {
+            throw new IllegalArgumentException("Os identificadores da escola e do responsável são obrigatórios.");
+        }
+        if (dados == null) {
+            throw new IllegalArgumentException("Os dados do responsável não podem ser nulos.");
+        }
+
+        buscarDetalhePorEscola(escolaId, responsavelId);
+
+        String nome = dados.getNome() != null ? dados.getNome().trim() : "";
+        if (nome.isEmpty()) {
+            throw new IllegalArgumentException("O nome do responsável é obrigatório.");
+        }
+
+        String telefone = dados.getTelefone() != null ? dados.getTelefone().trim() : "";
+        if (telefone.isEmpty()) {
+            throw new IllegalArgumentException("O telefone do responsável é obrigatório.");
+        }
+
+        String cpfRaw = dados.getCpf() != null ? dados.getCpf().trim() : "";
+        boolean atualizarCpf = !cpfRaw.isEmpty() && !cpfRaw.contains("*");
+        if (atualizarCpf) {
+            String cpfDigits = CpfCryptoService.normalizarDigitos(cpfRaw);
+            if (cpfDigits.length() != 11) {
+                throw new IllegalArgumentException("Informe um CPF válido com 11 dígitos para o responsável.");
+            }
+            Responsavel existente = responsavelDAO.buscarPorCpf(cpfRaw);
+            if (existente != null && !responsavelId.equals(existente.getId())) {
+                throw new IllegalArgumentException("Já existe outro responsável cadastrado com o CPF informado.");
+            }
+        }
+
+        Responsavel atualizado = new Responsavel();
+        atualizado.setId(responsavelId);
+        atualizado.setNome(nome);
+        atualizado.setTelefone(telefone);
+        atualizado.setCpf(atualizarCpf ? CpfCryptoService.formatar(cpfRaw) : null);
+
+        responsavelDAO.atualizar(atualizado, atualizarCpf);
+        return buscarDetalhePorEscola(escolaId, responsavelId);
+    }
+
     private void validar(Responsavel responsavel) {
         if (responsavel == null) {
             throw new IllegalArgumentException("Os dados do responsável não podem ser nulos.");
@@ -60,12 +129,6 @@ public class ResponsavelService {
         }
         if (responsavel.getTelefone() == null || responsavel.getTelefone().trim().isEmpty()) {
             throw new IllegalArgumentException("O telefone do responsável é obrigatório.");
-        }
-        if (responsavel.getRendaFamiliar() == null) {
-            throw new IllegalArgumentException("A renda familiar do responsável é obrigatória.");
-        }
-        if (responsavel.getRendaFamiliar().compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("A renda familiar não pode ser um valor negativo.");
         }
     }
 }

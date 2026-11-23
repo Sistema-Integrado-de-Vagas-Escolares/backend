@@ -24,7 +24,7 @@ public enum StatusInscricao {
         }
         return switch (this) {
             case EM_ESPERA -> novoStatus == CHAMADO || novoStatus == CANCELADO || novoStatus == EM_ESPERA;
-            case CHAMADO -> novoStatus == MATRICULADO || novoStatus == EXPIRADO || novoStatus == CANCELADO;
+            case CHAMADO -> novoStatus == MATRICULADO || novoStatus == EXPIRADO || novoStatus == CANCELADO || novoStatus == EM_ESPERA;
             case EXPIRADO -> novoStatus == EM_ESPERA;
             case MATRICULADO -> novoStatus == CANCELADO;
             case CANCELADO -> false;

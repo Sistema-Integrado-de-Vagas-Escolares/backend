@@ -22,20 +22,22 @@ CREATE TABLE IF NOT EXISTS turmas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     escola_id UUID NOT NULL REFERENCES escolas(id) ON DELETE CASCADE,
     serie_ano VARCHAR(50) NOT NULL,
+    nome VARCHAR(60) NOT NULL DEFAULT 'Turma A',
     turno VARCHAR(20) NOT NULL CHECK (turno IN ('MANHA', 'TARDE', 'INTEGRAL')),
     vagas_totais INTEGER NOT NULL CHECK (vagas_totais >= 0),
     vagas_disponiveis INTEGER NOT NULL CHECK (vagas_disponiveis >= 0),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_vagas CHECK (vagas_disponiveis <= vagas_totais)
+    CONSTRAINT chk_vagas CHECK (vagas_disponiveis <= vagas_totais),
+    CONSTRAINT uk_turma_escola_serie_turno_nome UNIQUE (escola_id, serie_ano, turno, nome)
 );
 
 -- 3. Tabela de Responsáveis
 CREATE TABLE IF NOT EXISTS responsaveis (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(150) NOT NULL,
-    cpf VARCHAR(14) NOT NULL UNIQUE,
+    cpf VARCHAR(255) NOT NULL,
+    cpf_hash VARCHAR(64) NOT NULL UNIQUE,
     telefone VARCHAR(20) NOT NULL,
-    renda_familiar NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -43,9 +45,24 @@ CREATE TABLE IF NOT EXISTS responsaveis (
 CREATE TABLE IF NOT EXISTS alunos (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(150) NOT NULL,
+    cpf VARCHAR(255) NOT NULL,
+    cpf_hash VARCHAR(64) NOT NULL UNIQUE,
     data_nascimento DATE NOT NULL,
-    certidao_nascimento VARCHAR(50) NOT NULL,
+    cep VARCHAR(9),
+    rua VARCHAR(150),
+    numero VARCHAR(20),
+    complemento VARCHAR(100),
+    bairro VARCHAR(100),
+    cidade VARCHAR(100),
+    estado CHAR(2),
+    renda_per_capita NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     tem_necessidade_especial BOOLEAN NOT NULL DEFAULT FALSE,
+    vulnerabilidade_socioeconomica BOOLEAN NOT NULL DEFAULT FALSE,
+    responsavel_solo BOOLEAN NOT NULL DEFAULT FALSE,
+    mora_de_aluguel BOOLEAN NOT NULL DEFAULT FALSE,
+    bolsa_familia BOOLEAN NOT NULL DEFAULT FALSE,
+    bpc_loas BOOLEAN NOT NULL DEFAULT FALSE,
+    irmao_matriculado BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -64,9 +81,14 @@ CREATE TABLE IF NOT EXISTS aluno_responsaveis (
 -- 6. Tabela de Critérios de Pontuação
 CREATE TABLE IF NOT EXISTS criterios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    codigo VARCHAR(50),
     nome VARCHAR(100) NOT NULL UNIQUE,
+    descricao TEXT NOT NULL DEFAULT '',
     pontos_base NUMERIC(5, 2) NOT NULL CHECK (pontos_base >= 0),
     categoria VARCHAR(30) NOT NULL CHECK (categoria IN ('SOCIAL', 'GEOGRAFICO', 'FAMILIAR')),
+    tipo_resposta VARCHAR(30) NOT NULL DEFAULT 'SIM_NAO' CHECK (tipo_resposta IN ('FAIXA_VALORES', 'SIM_NAO', 'DISTANCIA')),
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    ordem INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -74,7 +96,11 @@ CREATE TABLE IF NOT EXISTS criterios (
 CREATE TABLE IF NOT EXISTS inscricoes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     aluno_id UUID NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
-    turma_id UUID NOT NULL REFERENCES turmas(id) ON DELETE CASCADE,
+    escola_id UUID REFERENCES escolas(id) ON DELETE CASCADE,
+    turma_id UUID REFERENCES turmas(id) ON DELETE CASCADE,
+    tipo_vaga VARCHAR(20) CHECK (tipo_vaga IN ('CRECHE', 'FUNDAMENTAL')),
+    serie_ano VARCHAR(50),
+    turno VARCHAR(20) CHECK (turno IN ('MANHA', 'TARDE', 'INTEGRAL')),
     protocolo VARCHAR(30) NOT NULL UNIQUE,
     data_inscricao TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     pontuacao_total NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
@@ -94,13 +120,13 @@ CREATE TABLE IF NOT EXISTS inscricao_criterios (
     CONSTRAINT uk_inscricao_criterio UNIQUE (inscricao_id, criterio_id)
 );
 
--- =============================================================================
--- Inserção de Dados Iniciais de Teste (Seed)
--- =============================================================================
-
-INSERT INTO criterios (nome, pontos_base, categoria) VALUES
-    ('Renda Familiar Baixa (até 1 SM)', 40.00, 'SOCIAL'),
-    ('Necessidade Especial (PcD)', 30.00, 'SOCIAL'),
-    ('Irmão Matriculado na Mesma Escola', 20.00, 'FAMILIAR'),
-    ('Proximidade Residencial (< 1 km)', 10.00, 'GEOGRAFICO')
-ON CONFLICT (nome) DO NOTHING;
+-- 9. Tabela de Histórico de Atualizações de Vagas
+CREATE TABLE IF NOT EXISTS historico_vagas (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    escola_id UUID NOT NULL REFERENCES escolas(id) ON DELETE CASCADE,
+    turma_id UUID NOT NULL REFERENCES turmas(id) ON DELETE CASCADE,
+    vagas_anteriores INTEGER NOT NULL CHECK (vagas_anteriores >= 0),
+    vagas_novas INTEGER NOT NULL CHECK (vagas_novas >= 0),
+    motivo VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

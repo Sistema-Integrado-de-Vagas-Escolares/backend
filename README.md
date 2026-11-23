@@ -59,8 +59,10 @@ backend/
 ├── pom.xml                         # Dependências do projeto Maven
 ├── README.md                       # Documentação técnica do projeto
 ├── client.http                     # Script de testes manuais via extensão REST Client
-├── sql/
-│   └── schema.sql                  # Script DDL com a estrutura das 8 tabelas e seeds
+├── database/
+│   ├── schema.sql                  # Script DDL com a estrutura das 8 tabelas
+│   ├── migrations/                 # Scripts de migração incremental do banco
+│   └── seeds/                      # Scripts de dados iniciais (critérios e usuário/escola)
 └── src/main/java/com/sive/
     ├── SiveApplication.java        # Inicializador da aplicação Spring Boot
     │
@@ -269,7 +271,7 @@ Na pasta `backend/`, inicie o container do banco:
 cd backend
 docker compose up sive-db -d
 ```
-O banco criará a base `sive_db` na porta padrão `5432` e executará automaticamente o script DDL `sql/schema.sql`.
+O banco criará a base `sive_db` na porta padrão `5432` e executará automaticamente o script DDL `database/schema.sql` e os seeds em `database/seeds/`.
 
 #### 2. Testar Conexão com o Banco (Opcional)
 Você pode rodar o método utilitário de teste em `Conexao.java`:
@@ -351,7 +353,7 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 
 ### 1. Infraestrutura e Banco de Dados (Concluído)
 - [x] Container Docker com PostgreSQL 16 (`docker-compose.yml`)
-- [x] Script DDL relacional com 8 tabelas normalizadas (`sql/schema.sql`)
+- [x] Script DDL relacional com 8 tabelas normalizadas (`database/schema.sql`)
 - [x] Suporte ao relacionamento N:N entre Alunos e Responsáveis (`aluno_responsaveis`)
 - [x] Seeds com critérios iniciais de pontuação
 - [x] Gerenciador de conexão JDBC nativa (`com.sive.dao.Conexao`)
