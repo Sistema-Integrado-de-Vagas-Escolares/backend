@@ -240,6 +240,13 @@ public class AlunoDAO {
     }
 
     public AlunoDetalhe buscarDetalhePorEscola(UUID escolaId, UUID alunoId) throws SQLException {
+        return buscarDetalhePorEscola(escolaId, alunoId, false);
+    }
+
+    public AlunoDetalhe buscarDetalhePorEscola(
+            UUID escolaId,
+            UUID alunoId,
+            boolean incluirCpfCompleto) throws SQLException {
         String sqlAluno = "SELECT a.id, a.nome, a.cpf, a.data_nascimento, " + COLUNAS_ENDERECO_ALIASED
                 + ", a.renda_per_capita, a.tem_necessidade_especial, "
                 + "a.vulnerabilidade_socioeconomica, a.responsavel_solo, a.mora_de_aluguel, "
@@ -275,10 +282,15 @@ public class AlunoDAO {
                         Timestamp tsInscricao = rs.getTimestamp("data_inscricao");
                         Timestamp tsChamada = rs.getTimestamp("data_chamada");
 
+                        String cpfBruto = rs.getString("cpf");
+                        String cpfExibicao = incluirCpfCompleto
+                                ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfBruto))
+                                : CpfCryptoService.mascararParaExibicao(cpfBruto);
+
                         detalhe = new AlunoDetalhe(
                                 (UUID) rs.getObject("id"),
                                 rs.getString("nome"),
-                                CpfCryptoService.mascararParaExibicao(rs.getString("cpf")),
+                                cpfExibicao,
                                 sqlDate != null ? sqlDate.toLocalDate() : null,
                                 mapearEndereco(rs),
                                 rs.getBigDecimal("renda_per_capita"),
@@ -313,10 +325,14 @@ public class AlunoDAO {
                 stmtResp.setObject(1, alunoId);
                 try (ResultSet rsResp = stmtResp.executeQuery()) {
                     while (rsResp.next()) {
+                        String cpfRespBruto = rsResp.getString("cpf");
+                        String cpfRespExibicao = incluirCpfCompleto
+                                ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfRespBruto))
+                                : CpfCryptoService.mascararParaExibicao(cpfRespBruto);
                         responsaveis.add(new AlunoDetalhe.ResponsavelVinculadoDetalhe(
                                 (UUID) rsResp.getObject("id"),
                                 rsResp.getString("nome"),
-                                CpfCryptoService.mascararParaExibicao(rsResp.getString("cpf")),
+                                cpfRespExibicao,
                                 rsResp.getString("telefone"),
                                 rsResp.getString("parentesco"),
                                 rsResp.getBoolean("is_contato_principal")));

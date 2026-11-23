@@ -183,7 +183,7 @@ public class AlunoService {
             }
         }
 
-        return new AlunoResumo(
+        AlunoResumo resumo = new AlunoResumo(
                 aluno.getId(),
                 aluno.getNome(),
                 aluno.getCpf(),
@@ -196,6 +196,8 @@ public class AlunoService {
                 turno,
                 pontuacaoTotal,
                 "EM_ESPERA");
+        resumo.setProtocolo(protocolo);
+        return resumo;
     }
 
     public Aluno buscarPorId(UUID id) throws SQLException {
@@ -217,10 +219,17 @@ public class AlunoService {
     }
 
     public AlunoDetalhe buscarDetalhePorEscola(UUID escolaId, UUID alunoId) throws SQLException {
+        return buscarDetalhePorEscola(escolaId, alunoId, false);
+    }
+
+    public AlunoDetalhe buscarDetalhePorEscola(
+            UUID escolaId,
+            UUID alunoId,
+            boolean incluirCpfCompleto) throws SQLException {
         if (escolaId == null || alunoId == null) {
             throw new IllegalArgumentException("Os identificadores da escola e do aluno são obrigatórios.");
         }
-        AlunoDetalhe detalhe = alunoDAO.buscarDetalhePorEscola(escolaId, alunoId);
+        AlunoDetalhe detalhe = alunoDAO.buscarDetalhePorEscola(escolaId, alunoId, incluirCpfCompleto);
         if (detalhe == null) {
             throw new IllegalArgumentException("Aluno não encontrado para esta escola.");
         }

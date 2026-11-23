@@ -21,6 +21,7 @@ public class AlunoResumo {
     private String turno;
     private BigDecimal pontuacaoTotal;
     private String statusInscricao;
+    private String protocolo;
 
     public AlunoResumo() {
     }
@@ -146,5 +147,13 @@ public class AlunoResumo {
 
     public void setStatusInscricao(String statusInscricao) {
         this.statusInscricao = statusInscricao;
+    }
+
+    public String getProtocolo() {
+        return protocolo;
+    }
+
+    public void setProtocolo(String protocolo) {
+        this.protocolo = protocolo;
     }
 }

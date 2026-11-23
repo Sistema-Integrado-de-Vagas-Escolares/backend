@@ -207,9 +207,11 @@ public class EscolaPainelController {
     @GetMapping("/responsaveis/{responsavelId}")
     public ResponseEntity<ResponsavelDetalhe> buscarResponsavelDetalhe(
             @PathVariable UUID responsavelId,
+            @RequestParam(defaultValue = "false") boolean incluirCpfCompleto,
             HttpServletRequest request) throws SQLException {
         UUID escolaId = obterEscolaIdAutenticada(request);
-        return ResponseEntity.ok(responsavelService.buscarDetalhePorEscola(escolaId, responsavelId));
+        return ResponseEntity.ok(
+                responsavelService.buscarDetalhePorEscola(escolaId, responsavelId, incluirCpfCompleto));
     }
 
     /**
@@ -223,6 +225,19 @@ public class EscolaPainelController {
         obterEscolaIdAutenticada(request);
         Responsavel criado = responsavelService.cadastrar(responsavel);
         return ResponseEntity.status(HttpStatus.CREATED).body(criado);
+    }
+
+    /**
+     * Atualiza os dados de um responsável cadastrado.
+     * PUT /api/escola/responsaveis/{responsavelId}
+     */
+    @PutMapping("/responsaveis/{responsavelId}")
+    public ResponseEntity<ResponsavelDetalhe> atualizarResponsavel(
+            @PathVariable UUID responsavelId,
+            @RequestBody Responsavel responsavel,
+            HttpServletRequest request) throws SQLException {
+        UUID escolaId = obterEscolaIdAutenticada(request);
+        return ResponseEntity.ok(responsavelService.atualizarParaEscola(escolaId, responsavelId, responsavel));
     }
 
     /**
@@ -245,9 +260,10 @@ public class EscolaPainelController {
     @GetMapping("/alunos/{alunoId}")
     public ResponseEntity<AlunoDetalhe> buscarAlunoDetalhe(
             @PathVariable UUID alunoId,
+            @RequestParam(defaultValue = "false") boolean incluirCpfCompleto,
             HttpServletRequest request) throws SQLException {
         UUID escolaId = obterEscolaIdAutenticada(request);
-        return ResponseEntity.ok(alunoService.buscarDetalhePorEscola(escolaId, alunoId));
+        return ResponseEntity.ok(alunoService.buscarDetalhePorEscola(escolaId, alunoId, incluirCpfCompleto));
     }
 
     /**

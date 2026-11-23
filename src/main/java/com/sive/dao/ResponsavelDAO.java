@@ -46,6 +46,27 @@ public class ResponsavelDAO {
         }
     }
 
+    public void atualizar(Responsavel responsavel, boolean atualizarCpf) throws SQLException {
+        StringBuilder sql = new StringBuilder("UPDATE responsaveis SET nome = ?, telefone = ? ");
+        if (atualizarCpf) {
+            sql.append(", cpf = ?, cpf_hash = ? ");
+        }
+        sql.append("WHERE id = ?");
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            stmt.setString(idx++, responsavel.getNome());
+            stmt.setString(idx++, responsavel.getTelefone());
+            if (atualizarCpf) {
+                stmt.setString(idx++, CpfCryptoService.criptografar(responsavel.getCpf()));
+                stmt.setString(idx++, CpfCryptoService.gerarHash(responsavel.getCpf()));
+            }
+            stmt.setObject(idx, responsavel.getId());
+            stmt.executeUpdate();
+        }
+    }
+
     public Responsavel buscarPorId(UUID id) throws SQLException {
         String sql = "SELECT id, nome, cpf, telefone FROM responsaveis WHERE id = ?";
 
@@ -152,6 +173,13 @@ public class ResponsavelDAO {
     }
 
     public ResponsavelDetalhe buscarDetalhePorEscola(UUID escolaId, UUID responsavelId) throws SQLException {
+        return buscarDetalhePorEscola(escolaId, responsavelId, false);
+    }
+
+    public ResponsavelDetalhe buscarDetalhePorEscola(
+            UUID escolaId,
+            UUID responsavelId,
+            boolean incluirCpfCompleto) throws SQLException {
         String sqlResp = "SELECT id, nome, cpf, telefone FROM responsaveis WHERE id = ?";
         String sqlFilhos = "SELECT DISTINCT ON (a.id) "
                 + "a.id, a.nome, a.cpf, a.data_nascimento, "
@@ -175,10 +203,15 @@ public class ResponsavelDAO {
                 stmt.setObject(1, responsavelId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
+                        String cpfBruto = rs.getString("cpf");
+                        String cpfExibicao = incluirCpfCompleto
+                                ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfBruto))
+                                : CpfCryptoService.mascararParaExibicao(cpfBruto);
+
                         detalhe = new ResponsavelDetalhe(
                                 (UUID) rs.getObject("id"),
                                 rs.getString("nome"),
-                                CpfCryptoService.mascararParaExibicao(rs.getString("cpf")),
+                                cpfExibicao,
                                 rs.getString("telefone"),
                                 new ArrayList<>());
                     }
@@ -196,10 +229,14 @@ public class ResponsavelDAO {
                 try (ResultSet rsFilhos = stmtFilhos.executeQuery()) {
                     while (rsFilhos.next()) {
                         Date sqlDate = rsFilhos.getDate("data_nascimento");
+                        String cpfFilhoBruto = rsFilhos.getString("cpf");
+                        String cpfFilhoExibicao = incluirCpfCompleto
+                                ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfFilhoBruto))
+                                : CpfCryptoService.mascararParaExibicao(cpfFilhoBruto);
                         filhos.add(new ResponsavelDetalhe.FilhoVinculadoResumo(
                                 (UUID) rsFilhos.getObject("id"),
                                 rsFilhos.getString("nome"),
-                                CpfCryptoService.mascararParaExibicao(rsFilhos.getString("cpf")),
+                                cpfFilhoExibicao,
                                 sqlDate != null ? sqlDate.toLocalDate() : null,
                                 rsFilhos.getString("etapa_ou_turma"),
                                 rsFilhos.getString("turma_nome"),
