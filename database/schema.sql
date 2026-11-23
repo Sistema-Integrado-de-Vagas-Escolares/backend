@@ -57,6 +57,12 @@ CREATE TABLE IF NOT EXISTS alunos (
     estado CHAR(2),
     renda_per_capita NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     tem_necessidade_especial BOOLEAN NOT NULL DEFAULT FALSE,
+    vulnerabilidade_socioeconomica BOOLEAN NOT NULL DEFAULT FALSE,
+    responsavel_solo BOOLEAN NOT NULL DEFAULT FALSE,
+    mora_de_aluguel BOOLEAN NOT NULL DEFAULT FALSE,
+    bolsa_familia BOOLEAN NOT NULL DEFAULT FALSE,
+    bpc_loas BOOLEAN NOT NULL DEFAULT FALSE,
+    irmao_matriculado BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

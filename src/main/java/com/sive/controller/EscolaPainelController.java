@@ -11,6 +11,7 @@ import com.sive.model.GerenciarChamadoRequest;
 import com.sive.model.HistoricoVaga;
 import com.sive.model.ListaInscricoesEscolaResponse;
 import com.sive.model.Responsavel;
+import com.sive.model.ResponsavelDetalhe;
 import com.sive.model.ResponsavelResumo;
 import com.sive.model.ResumoEscola;
 import com.sive.model.StatusInscricao;
@@ -200,6 +201,18 @@ public class EscolaPainelController {
     }
 
     /**
+     * Retorna os dados de um responsável e os filhos vinculados com resumo na escola.
+     * GET /api/escola/responsaveis/{responsavelId}
+     */
+    @GetMapping("/responsaveis/{responsavelId}")
+    public ResponseEntity<ResponsavelDetalhe> buscarResponsavelDetalhe(
+            @PathVariable UUID responsavelId,
+            HttpServletRequest request) throws SQLException {
+        UUID escolaId = obterEscolaIdAutenticada(request);
+        return ResponseEntity.ok(responsavelService.buscarDetalhePorEscola(escolaId, responsavelId));
+    }
+
+    /**
      * Cadastra um novo responsável a partir da escola autenticada.
      * POST /api/escola/responsaveis
      */
@@ -235,6 +248,19 @@ public class EscolaPainelController {
             HttpServletRequest request) throws SQLException {
         UUID escolaId = obterEscolaIdAutenticada(request);
         return ResponseEntity.ok(alunoService.buscarDetalhePorEscola(escolaId, alunoId));
+    }
+
+    /**
+     * Atualiza todos os dados, critérios, inscrição e responsáveis de um aluno da escola.
+     * PUT /api/escola/alunos/{alunoId}
+     */
+    @PutMapping("/alunos/{alunoId}")
+    public ResponseEntity<AlunoDetalhe> atualizarAluno(
+            @PathVariable UUID alunoId,
+            @RequestBody CadastrarAlunoInscricaoRequest payload,
+            HttpServletRequest request) throws SQLException {
+        UUID escolaId = obterEscolaIdAutenticada(request);
+        return ResponseEntity.ok(alunoService.atualizarParaEscola(escolaId, alunoId, payload));
     }
 
     /**

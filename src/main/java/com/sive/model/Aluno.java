@@ -11,6 +11,12 @@ public class Aluno extends Pessoa {
     private Endereco endereco;
     private BigDecimal rendaPerCapita;
     private boolean temNecessidadeEspecial;
+    private boolean vulnerabilidadeSocioeconomica;
+    private boolean responsavelSolo;
+    private boolean moraDeAluguel;
+    private boolean bolsaFamilia;
+    private boolean bpcLoas;
+    private boolean irmaoMatriculado;
 
     public Aluno() {
         super();
@@ -87,6 +93,54 @@ public class Aluno extends Pessoa {
 
     public void setTemNecessidadeEspecial(boolean temNecessidadeEspecial) {
         this.temNecessidadeEspecial = temNecessidadeEspecial;
+    }
+
+    public boolean isVulnerabilidadeSocioeconomica() {
+        return vulnerabilidadeSocioeconomica;
+    }
+
+    public void setVulnerabilidadeSocioeconomica(boolean vulnerabilidadeSocioeconomica) {
+        this.vulnerabilidadeSocioeconomica = vulnerabilidadeSocioeconomica;
+    }
+
+    public boolean isResponsavelSolo() {
+        return responsavelSolo;
+    }
+
+    public void setResponsavelSolo(boolean responsavelSolo) {
+        this.responsavelSolo = responsavelSolo;
+    }
+
+    public boolean isMoraDeAluguel() {
+        return moraDeAluguel;
+    }
+
+    public void setMoraDeAluguel(boolean moraDeAluguel) {
+        this.moraDeAluguel = moraDeAluguel;
+    }
+
+    public boolean isBolsaFamilia() {
+        return bolsaFamilia;
+    }
+
+    public void setBolsaFamilia(boolean bolsaFamilia) {
+        this.bolsaFamilia = bolsaFamilia;
+    }
+
+    public boolean isBpcLoas() {
+        return bpcLoas;
+    }
+
+    public void setBpcLoas(boolean bpcLoas) {
+        this.bpcLoas = bpcLoas;
+    }
+
+    public boolean isIrmaoMatriculado() {
+        return irmaoMatriculado;
+    }
+
+    public void setIrmaoMatriculado(boolean irmaoMatriculado) {
+        this.irmaoMatriculado = irmaoMatriculado;
     }
 
     @Override

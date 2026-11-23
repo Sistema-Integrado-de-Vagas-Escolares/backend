@@ -109,6 +109,12 @@ public class AlunoService {
         aluno.setEndereco(enderecoNormalizado);
         aluno.setRendaPerCapita(rendaPerCapita);
         aluno.setTemNecessidadeEspecial(request.isTemNecessidadeEspecial());
+        aluno.setVulnerabilidadeSocioeconomica(request.isVulnerabilidadeSocioeconomica());
+        aluno.setResponsavelSolo(request.isResponsavelSolo());
+        aluno.setMoraDeAluguel(request.isMoraDeAluguel());
+        aluno.setBolsaFamilia(request.isBolsaFamilia());
+        aluno.setBpcLoas(request.isBpcLoas());
+        aluno.setIrmaoMatriculado(request.isIrmaoMatriculado());
         validar(aluno);
 
         if (alunoDAO.buscarPorCpf(aluno.getCpf()) != null) {
@@ -206,6 +212,126 @@ public class AlunoService {
             throw new IllegalArgumentException("Aluno não encontrado para esta escola.");
         }
         return detalhe;
+    }
+
+    public AlunoDetalhe atualizarParaEscola(
+            UUID escolaId,
+            UUID alunoId,
+            CadastrarAlunoInscricaoRequest request) throws SQLException {
+        if (escolaId == null || alunoId == null) {
+            throw new IllegalArgumentException("Os identificadores da escola e do aluno são obrigatórios.");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Os dados do aluno não podem ser nulos.");
+        }
+
+        buscarDetalhePorEscola(escolaId, alunoId);
+
+        String tipoVaga = normalizarTipoVaga(request.getTipoVaga());
+        if (request.getSerieAno() == null || request.getSerieAno().trim().isEmpty()) {
+            throw new IllegalArgumentException("O nível escolar pretendido é obrigatório.");
+        }
+        String serieAno = request.getSerieAno().trim();
+        String turno = normalizarTurno(request.getTurno());
+        Endereco enderecoNormalizado = validarENormalizarEndereco(request.getEndereco());
+
+        BigDecimal rendaPerCapita = request.getRendaPerCapita() != null
+                ? request.getRendaPerCapita()
+                : BigDecimal.ZERO;
+        if (rendaPerCapita.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("A renda familiar per capita não pode ser negativa.");
+        }
+
+        List<CadastrarAlunoInscricaoRequest.ResponsavelVinculoItem> responsaveis = request.getResponsaveis();
+        if (responsaveis == null || responsaveis.isEmpty()) {
+            throw new IllegalArgumentException("Vincule pelo menos um responsável ao aluno.");
+        }
+
+        String nome = request.getNome() != null ? request.getNome().trim() : "";
+        if (nome.isEmpty()) {
+            throw new IllegalArgumentException("O nome do aluno é obrigatório.");
+        }
+        if (request.getDataNascimento() == null || request.getDataNascimento().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("A data de nascimento do aluno é inválida.");
+        }
+
+        String cpfRaw = request.getCpf() != null ? request.getCpf().trim() : "";
+        boolean atualizarCpf = !cpfRaw.isEmpty() && !cpfRaw.contains("*");
+        if (atualizarCpf) {
+            String cpfDigits = CpfCryptoService.normalizarDigitos(cpfRaw);
+            if (cpfDigits.length() != 11) {
+                throw new IllegalArgumentException("Informe um CPF válido com 11 dígitos para o aluno.");
+            }
+            Aluno existenteCpf = alunoDAO.buscarPorCpf(cpfRaw);
+            if (existenteCpf != null && !alunoId.equals(existenteCpf.getId())) {
+                throw new IllegalArgumentException("Já existe outro aluno cadastrado com o CPF informado.");
+            }
+        }
+
+        for (CadastrarAlunoInscricaoRequest.ResponsavelVinculoItem item : responsaveis) {
+            if (item == null || item.getResponsavelId() == null) {
+                throw new IllegalArgumentException("Todos os responsáveis vinculados devem possuir um ID válido.");
+            }
+            if (responsavelDAO.buscarPorId(item.getResponsavelId()) == null) {
+                throw new IllegalArgumentException(
+                        "Responsável não encontrado para o ID informado: " + item.getResponsavelId());
+            }
+        }
+
+        Aluno aluno = new Aluno();
+        aluno.setId(alunoId);
+        aluno.setNome(nome);
+        aluno.setCpf(cpfRaw);
+        aluno.setDataNascimento(request.getDataNascimento());
+        aluno.setEndereco(enderecoNormalizado);
+        aluno.setRendaPerCapita(rendaPerCapita);
+        aluno.setTemNecessidadeEspecial(request.isTemNecessidadeEspecial());
+        aluno.setVulnerabilidadeSocioeconomica(request.isVulnerabilidadeSocioeconomica());
+        aluno.setResponsavelSolo(request.isResponsavelSolo());
+        aluno.setMoraDeAluguel(request.isMoraDeAluguel());
+        aluno.setBolsaFamilia(request.isBolsaFamilia());
+        aluno.setBpcLoas(request.isBpcLoas());
+        aluno.setIrmaoMatriculado(request.isIrmaoMatriculado());
+
+        BigDecimal pontuacaoTotal = calcularPontuacaoEstimada(request, rendaPerCapita);
+
+        try (Connection conn = Conexao.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                alunoDAO.atualizar(aluno, atualizarCpf, conn);
+                alunoDAO.removerResponsaveis(alunoId, conn);
+
+                for (int i = 0; i < responsaveis.size(); i++) {
+                    CadastrarAlunoInscricaoRequest.ResponsavelVinculoItem item = responsaveis.get(i);
+                    Parentesco parentesco = Parentesco.fromString(item.getParentesco());
+                    if (parentesco == null) {
+                        parentesco = Parentesco.OUTRO;
+                    }
+                    AlunoResponsavel vinculo = new AlunoResponsavel(
+                            alunoId,
+                            item.getResponsavelId(),
+                            parentesco,
+                            i == 0);
+                    alunoResponsavelDAO.vincular(vinculo, conn);
+                }
+
+                alunoDAO.atualizarInscricaoEscola(
+                        conn,
+                        escolaId,
+                        alunoId,
+                        tipoVaga,
+                        serieAno,
+                        turno,
+                        pontuacaoTotal);
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+
+        return buscarDetalhePorEscola(escolaId, alunoId);
     }
 
     public List<AlunoResponsavel> listarResponsaveis(UUID alunoId) throws SQLException {

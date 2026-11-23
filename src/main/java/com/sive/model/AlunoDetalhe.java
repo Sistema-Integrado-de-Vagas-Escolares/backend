@@ -91,8 +91,15 @@ public class AlunoDetalhe {
     private Endereco endereco;
     private BigDecimal rendaPerCapita;
     private boolean temNecessidadeEspecial;
+    private boolean vulnerabilidadeSocioeconomica;
+    private boolean responsavelSolo;
+    private boolean moraDeAluguel;
+    private boolean bolsaFamilia;
+    private boolean bpcLoas;
+    private boolean irmaoMatriculado;
     private String protocolo;
     private String etapaOuTurma;
+    private String serieAno;
     private String turmaNome;
     private String tipoVaga;
     private String turno;
@@ -197,6 +204,62 @@ public class AlunoDetalhe {
 
     public void setTemNecessidadeEspecial(boolean temNecessidadeEspecial) {
         this.temNecessidadeEspecial = temNecessidadeEspecial;
+    }
+
+    public boolean isVulnerabilidadeSocioeconomica() {
+        return vulnerabilidadeSocioeconomica;
+    }
+
+    public void setVulnerabilidadeSocioeconomica(boolean vulnerabilidadeSocioeconomica) {
+        this.vulnerabilidadeSocioeconomica = vulnerabilidadeSocioeconomica;
+    }
+
+    public boolean isResponsavelSolo() {
+        return responsavelSolo;
+    }
+
+    public void setResponsavelSolo(boolean responsavelSolo) {
+        this.responsavelSolo = responsavelSolo;
+    }
+
+    public boolean isMoraDeAluguel() {
+        return moraDeAluguel;
+    }
+
+    public void setMoraDeAluguel(boolean moraDeAluguel) {
+        this.moraDeAluguel = moraDeAluguel;
+    }
+
+    public boolean isBolsaFamilia() {
+        return bolsaFamilia;
+    }
+
+    public void setBolsaFamilia(boolean bolsaFamilia) {
+        this.bolsaFamilia = bolsaFamilia;
+    }
+
+    public boolean isBpcLoas() {
+        return bpcLoas;
+    }
+
+    public void setBpcLoas(boolean bpcLoas) {
+        this.bpcLoas = bpcLoas;
+    }
+
+    public boolean isIrmaoMatriculado() {
+        return irmaoMatriculado;
+    }
+
+    public void setIrmaoMatriculado(boolean irmaoMatriculado) {
+        this.irmaoMatriculado = irmaoMatriculado;
+    }
+
+    public String getSerieAno() {
+        return serieAno;
+    }
+
+    public void setSerieAno(String serieAno) {
+        this.serieAno = serieAno;
     }
 
     public String getProtocolo() {

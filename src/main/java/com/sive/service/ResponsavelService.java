@@ -2,6 +2,7 @@ package com.sive.service;
 
 import com.sive.dao.ResponsavelDAO;
 import com.sive.model.Responsavel;
+import com.sive.model.ResponsavelDetalhe;
 import com.sive.model.ResponsavelResumo;
 import org.springframework.stereotype.Service;
 
@@ -49,6 +50,17 @@ public class ResponsavelService {
 
     public List<ResponsavelResumo> listarComTotalFilhos(String busca, Boolean comFilhos) throws SQLException {
         return responsavelDAO.listarComTotalFilhos(busca, comFilhos);
+    }
+
+    public ResponsavelDetalhe buscarDetalhePorEscola(UUID escolaId, UUID responsavelId) throws SQLException {
+        if (escolaId == null || responsavelId == null) {
+            throw new IllegalArgumentException("Os identificadores da escola e do responsável são obrigatórios.");
+        }
+        ResponsavelDetalhe detalhe = responsavelDAO.buscarDetalhePorEscola(escolaId, responsavelId);
+        if (detalhe == null) {
+            throw new IllegalArgumentException("Responsável não encontrado.");
+        }
+        return detalhe;
     }
 
     private void validar(Responsavel responsavel) {

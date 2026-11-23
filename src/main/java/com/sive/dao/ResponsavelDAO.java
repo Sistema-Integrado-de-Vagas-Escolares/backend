@@ -1,10 +1,12 @@
 package com.sive.dao;
 
 import com.sive.model.Responsavel;
+import com.sive.model.ResponsavelDetalhe;
 import com.sive.model.ResponsavelResumo;
 import com.sive.security.CpfCryptoService;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -147,6 +149,73 @@ public class ResponsavelDAO {
             }
         }
         return lista;
+    }
+
+    public ResponsavelDetalhe buscarDetalhePorEscola(UUID escolaId, UUID responsavelId) throws SQLException {
+        String sqlResp = "SELECT id, nome, cpf, telefone FROM responsaveis WHERE id = ?";
+        String sqlFilhos = "SELECT DISTINCT ON (a.id) "
+                + "a.id, a.nome, a.cpf, a.data_nascimento, "
+                + "COALESCE(t.serie_ano, i.serie_ano, CASE i.tipo_vaga WHEN 'CRECHE' THEN 'Creche' WHEN 'FUNDAMENTAL' THEN 'Fundamental' ELSE 'Sem inscrição' END) AS etapa_ou_turma, "
+                + "t.nome AS turma_nome, "
+                + "i.status AS status_inscricao, "
+                + "i.pontuacao_total, "
+                + "ar.parentesco, "
+                + "ar.is_contato_principal "
+                + "FROM aluno_responsaveis ar "
+                + "INNER JOIN alunos a ON a.id = ar.aluno_id "
+                + "LEFT JOIN inscricoes i ON i.aluno_id = a.id "
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE ar.responsavel_id = ? "
+                + "AND (i.id IS NULL OR COALESCE(i.escola_id, t.escola_id) = ?) "
+                + "ORDER BY a.id, i.created_at DESC NULLS LAST";
+
+        try (Connection conn = Conexao.getConnection()) {
+            ResponsavelDetalhe detalhe = null;
+            try (PreparedStatement stmt = conn.prepareStatement(sqlResp)) {
+                stmt.setObject(1, responsavelId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        detalhe = new ResponsavelDetalhe(
+                                (UUID) rs.getObject("id"),
+                                rs.getString("nome"),
+                                CpfCryptoService.mascararParaExibicao(rs.getString("cpf")),
+                                rs.getString("telefone"),
+                                new ArrayList<>());
+                    }
+                }
+            }
+
+            if (detalhe == null) {
+                return null;
+            }
+
+            List<ResponsavelDetalhe.FilhoVinculadoResumo> filhos = new ArrayList<>();
+            try (PreparedStatement stmtFilhos = conn.prepareStatement(sqlFilhos)) {
+                stmtFilhos.setObject(1, responsavelId);
+                stmtFilhos.setObject(2, escolaId);
+                try (ResultSet rsFilhos = stmtFilhos.executeQuery()) {
+                    while (rsFilhos.next()) {
+                        Date sqlDate = rsFilhos.getDate("data_nascimento");
+                        filhos.add(new ResponsavelDetalhe.FilhoVinculadoResumo(
+                                (UUID) rsFilhos.getObject("id"),
+                                rsFilhos.getString("nome"),
+                                CpfCryptoService.mascararParaExibicao(rsFilhos.getString("cpf")),
+                                sqlDate != null ? sqlDate.toLocalDate() : null,
+                                rsFilhos.getString("etapa_ou_turma"),
+                                rsFilhos.getString("turma_nome"),
+                                rsFilhos.getString("status_inscricao"),
+                                rsFilhos.getBigDecimal("pontuacao_total"),
+                                rsFilhos.getString("parentesco"),
+                                rsFilhos.getBoolean("is_contato_principal")));
+                    }
+                }
+            }
+            filhos.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
+                    a.getNome() != null ? a.getNome() : "",
+                    b.getNome() != null ? b.getNome() : ""));
+            detalhe.setFilhos(filhos);
+            return detalhe;
+        }
     }
 
     private Responsavel mapearResultSet(ResultSet rs) throws SQLException {
