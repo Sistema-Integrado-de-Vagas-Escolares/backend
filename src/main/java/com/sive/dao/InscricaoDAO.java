@@ -1,9 +1,12 @@
 package com.sive.dao;
 
+import com.sive.model.Aluno;
+import com.sive.model.Inscricao;
 import com.sive.model.InscricaoEscolaResumo;
 import com.sive.model.StatusInscricao;
 import com.sive.security.CpfCryptoService;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -235,6 +238,51 @@ public class InscricaoDAO {
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, turmaId);
             return stmt.executeUpdate() > 0;
+        }
+    }
+
+    public List<Inscricao> listarInscricoesEmEsperaParaRecalculo(Connection conn) throws SQLException {
+        String sql = "SELECT i.id AS inscricao_id, i.aluno_id, "
+                + "a.renda_per_capita, a.tem_necessidade_especial, a.vulnerabilidade_socioeconomica, "
+                + "a.responsavel_solo, a.mora_de_aluguel, a.bolsa_familia, a.bpc_loas, a.irmao_matriculado "
+                + "FROM inscricoes i "
+                + "INNER JOIN alunos a ON a.id = i.aluno_id "
+                + "WHERE i.status = 'EM_ESPERA'";
+
+        List<Inscricao> lista = new ArrayList<>();
+        try (PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                Aluno aluno = new Aluno();
+                aluno.setId((UUID) rs.getObject("aluno_id"));
+                aluno.setRendaPerCapita(rs.getBigDecimal("renda_per_capita"));
+                aluno.setTemNecessidadeEspecial(rs.getBoolean("tem_necessidade_especial"));
+                aluno.setVulnerabilidadeSocioeconomica(rs.getBoolean("vulnerabilidade_socioeconomica"));
+                aluno.setResponsavelSolo(rs.getBoolean("responsavel_solo"));
+                aluno.setMoraDeAluguel(rs.getBoolean("mora_de_aluguel"));
+                aluno.setBolsaFamilia(rs.getBoolean("bolsa_familia"));
+                aluno.setBpcLoas(rs.getBoolean("bpc_loas"));
+                aluno.setIrmaoMatriculado(rs.getBoolean("irmao_matriculado"));
+
+                Inscricao inscricao = new Inscricao();
+                inscricao.setId((UUID) rs.getObject("inscricao_id"));
+                inscricao.setAlunoId(aluno.getId());
+                inscricao.setAluno(aluno);
+                lista.add(inscricao);
+            }
+        }
+        return lista;
+    }
+
+    public void atualizarPontuacaoTotal(
+            Connection conn,
+            UUID inscricaoId,
+            BigDecimal pontuacaoTotal) throws SQLException {
+        String sql = "UPDATE inscricoes SET pontuacao_total = ? WHERE id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setBigDecimal(1, pontuacaoTotal != null ? pontuacaoTotal : BigDecimal.ZERO);
+            stmt.setObject(2, inscricaoId);
+            stmt.executeUpdate();
         }
     }
 }

@@ -3,12 +3,15 @@ package com.sive.service;
 import com.sive.dao.AlunoDAO;
 import com.sive.dao.AlunoResponsavelDAO;
 import com.sive.dao.Conexao;
+import com.sive.dao.CriterioDAO;
+import com.sive.dao.InscricaoCriterioDAO;
 import com.sive.dao.ResponsavelDAO;
 import com.sive.model.Aluno;
 import com.sive.model.AlunoDetalhe;
 import com.sive.model.AlunoResponsavel;
 import com.sive.model.AlunoResumo;
 import com.sive.model.CadastrarAlunoInscricaoRequest;
+import com.sive.model.Criterio;
 import com.sive.model.Endereco;
 import com.sive.model.Parentesco;
 import com.sive.security.CpfCryptoService;
@@ -27,11 +30,17 @@ public class AlunoService {
     private final AlunoDAO alunoDAO;
     private final AlunoResponsavelDAO alunoResponsavelDAO;
     private final ResponsavelDAO responsavelDAO;
+    private final CriterioDAO criterioDAO;
+    private final InscricaoCriterioDAO inscricaoCriterioDAO;
+    private final CriterioService criterioService;
 
     public AlunoService() {
         this.alunoDAO = new AlunoDAO();
         this.alunoResponsavelDAO = new AlunoResponsavelDAO();
         this.responsavelDAO = new ResponsavelDAO();
+        this.criterioDAO = new CriterioDAO();
+        this.inscricaoCriterioDAO = new InscricaoCriterioDAO();
+        this.criterioService = new CriterioService(this.criterioDAO);
     }
 
     public Aluno cadastrar(Aluno aluno, UUID responsavelId, Parentesco parentesco) throws SQLException {
@@ -131,7 +140,9 @@ public class AlunoService {
             }
         }
 
-        BigDecimal pontuacaoTotal = calcularPontuacaoEstimada(request, rendaPerCapita);
+        List<Criterio> criteriosAtivos = criterioDAO.listarTodos();
+        CriterioService.ResultadoPontuacao resultadoPontuacao = criterioService.avaliarCriterios(aluno, criteriosAtivos);
+        BigDecimal pontuacaoTotal = resultadoPontuacao.getPontuacaoTotal();
         String protocolo = "SIVE-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         try (Connection conn = Conexao.getConnection()) {
@@ -153,7 +164,7 @@ public class AlunoService {
                     alunoResponsavelDAO.vincular(vinculo, conn);
                 }
 
-                alunoDAO.inserirInscricaoFila(
+                UUID inscricaoId = alunoDAO.inserirInscricaoFila(
                         conn,
                         escolaId,
                         aluno.getId(),
@@ -162,6 +173,8 @@ public class AlunoService {
                         turno,
                         protocolo,
                         pontuacaoTotal);
+
+                inscricaoCriterioDAO.substituirPorInscricao(conn, inscricaoId, resultadoPontuacao.getItens());
 
                 conn.commit();
             } catch (SQLException e) {
@@ -293,7 +306,9 @@ public class AlunoService {
         aluno.setBpcLoas(request.isBpcLoas());
         aluno.setIrmaoMatriculado(request.isIrmaoMatriculado());
 
-        BigDecimal pontuacaoTotal = calcularPontuacaoEstimada(request, rendaPerCapita);
+        List<Criterio> criteriosAtivos = criterioDAO.listarTodos();
+        CriterioService.ResultadoPontuacao resultadoPontuacao = criterioService.avaliarCriterios(aluno, criteriosAtivos);
+        BigDecimal pontuacaoTotal = resultadoPontuacao.getPontuacaoTotal();
 
         try (Connection conn = Conexao.getConnection()) {
             conn.setAutoCommit(false);
@@ -315,7 +330,7 @@ public class AlunoService {
                     alunoResponsavelDAO.vincular(vinculo, conn);
                 }
 
-                alunoDAO.atualizarInscricaoEscola(
+                UUID inscricaoId = alunoDAO.atualizarInscricaoEscola(
                         conn,
                         escolaId,
                         alunoId,
@@ -323,6 +338,10 @@ public class AlunoService {
                         serieAno,
                         turno,
                         pontuacaoTotal);
+
+                if (inscricaoId != null) {
+                    inscricaoCriterioDAO.substituirPorInscricao(conn, inscricaoId, resultadoPontuacao.getItens());
+                }
 
                 conn.commit();
             } catch (SQLException e) {
@@ -383,30 +402,6 @@ public class AlunoService {
             throw new IllegalArgumentException("O período solicitado deve ser INTEGRAL, MANHA ou TARDE.");
         }
         return valor;
-    }
-
-    private BigDecimal calcularPontuacaoEstimada(
-            CadastrarAlunoInscricaoRequest request,
-            BigDecimal rendaPerCapita) {
-        int pontos = 0;
-
-        if (rendaPerCapita.compareTo(new BigDecimal("706.00")) <= 0) {
-            pontos += 25;
-        } else if (rendaPerCapita.compareTo(new BigDecimal("1412.00")) <= 0) {
-            pontos += 15;
-        } else if (rendaPerCapita.compareTo(new BigDecimal("2118.00")) <= 0) {
-            pontos += 8;
-        }
-
-        if (request.isTemNecessidadeEspecial()) pontos += 20;
-        if (request.isIrmaoMatriculado()) pontos += 15;
-        if (request.isVulnerabilidadeSocioeconomica()) pontos += 12;
-        if (request.isBpcLoas()) pontos += 10;
-        if (request.isBolsaFamilia()) pontos += 8;
-        if (request.isResponsavelSolo()) pontos += 6;
-        if (request.isMoraDeAluguel()) pontos += 4;
-
-        return BigDecimal.valueOf(Math.min(100, pontos));
     }
 
     private Endereco validarENormalizarEndereco(Endereco endereco) {

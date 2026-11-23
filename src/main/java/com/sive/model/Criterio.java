@@ -6,6 +6,7 @@ import java.util.UUID;
 public class Criterio {
 
     private UUID id;
+    private String codigo;
     private String nome;
     private String descricao;
     private double pontosBase;
@@ -61,6 +62,14 @@ public class Criterio {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public String getCodigo() {
+        return codigo;
+    }
+
+    public void setCodigo(String codigo) {
+        this.codigo = codigo;
     }
 
     public String getNome() {

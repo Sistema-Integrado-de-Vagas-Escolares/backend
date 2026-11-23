@@ -74,7 +74,7 @@ public class AlunoDAO {
         }
     }
 
-    public void inserirInscricaoFila(
+    public UUID inserirInscricaoFila(
             Connection conn,
             UUID escolaId,
             UUID alunoId,
@@ -83,12 +83,13 @@ public class AlunoDAO {
             String turno,
             String protocolo,
             BigDecimal pontuacaoTotal) throws SQLException {
+        UUID inscricaoId = UUID.randomUUID();
         String sql = "INSERT INTO inscricoes "
                 + "(id, aluno_id, escola_id, turma_id, tipo_vaga, serie_ano, turno, protocolo, pontuacao_total, status) "
                 + "VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, 'EM_ESPERA')";
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, UUID.randomUUID());
+            stmt.setObject(1, inscricaoId);
             stmt.setObject(2, alunoId);
             stmt.setObject(3, escolaId);
             stmt.setString(4, tipoVaga);
@@ -98,6 +99,7 @@ public class AlunoDAO {
             stmt.setBigDecimal(8, pontuacaoTotal != null ? pontuacaoTotal : BigDecimal.ZERO);
             stmt.executeUpdate();
         }
+        return inscricaoId;
     }
 
     public Aluno buscarPorId(UUID id) throws SQLException {
@@ -242,7 +244,7 @@ public class AlunoDAO {
                 + ", a.renda_per_capita, a.tem_necessidade_especial, "
                 + "a.vulnerabilidade_socioeconomica, a.responsavel_solo, a.mora_de_aluguel, "
                 + "a.bolsa_familia, a.bpc_loas, a.irmao_matriculado, "
-                + "i.protocolo, "
+                + "i.id AS inscricao_id, i.protocolo, "
                 + "COALESCE(t.serie_ano, i.serie_ano, CASE i.tipo_vaga WHEN 'CRECHE' THEN 'Creche' WHEN 'FUNDAMENTAL' THEN 'Fundamental' ELSE 'Lista de Espera' END) AS etapa_ou_turma, "
                 + "COALESCE(t.serie_ano, i.serie_ano) AS serie_ano, "
                 + "t.nome AS turma_nome, "
@@ -262,11 +264,13 @@ public class AlunoDAO {
 
         try (Connection conn = Conexao.getConnection()) {
             AlunoDetalhe detalhe = null;
+            UUID inscricaoId = null;
             try (PreparedStatement stmt = conn.prepareStatement(sqlAluno)) {
                 stmt.setObject(1, alunoId);
                 stmt.setObject(2, escolaId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
+                        inscricaoId = (UUID) rs.getObject("inscricao_id");
                         Date sqlDate = rs.getDate("data_nascimento");
                         Timestamp tsInscricao = rs.getTimestamp("data_inscricao");
                         Timestamp tsChamada = rs.getTimestamp("data_chamada");
@@ -320,6 +324,10 @@ public class AlunoDAO {
                 }
             }
             detalhe.setResponsaveis(responsaveis);
+            if (inscricaoId != null) {
+                InscricaoCriterioDAO inscricaoCriterioDAO = new InscricaoCriterioDAO();
+                detalhe.setCriteriosPontuados(inscricaoCriterioDAO.listarDetalhesPorInscricao(conn, inscricaoId));
+            }
             return detalhe;
         }
     }
@@ -373,7 +381,7 @@ public class AlunoDAO {
         }
     }
 
-    public void atualizarInscricaoEscola(
+    public UUID atualizarInscricaoEscola(
             Connection conn,
             UUID escolaId,
             UUID alunoId,
@@ -387,7 +395,7 @@ public class AlunoDAO {
                 + "  LEFT JOIN turmas t ON t.id = i.turma_id "
                 + "  WHERE i.aluno_id = ? AND COALESCE(i.escola_id, t.escola_id) = ? "
                 + "  ORDER BY i.created_at DESC LIMIT 1"
-                + ")";
+                + ") RETURNING id";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, tipoVaga);
             stmt.setString(2, serieAno);
@@ -395,8 +403,13 @@ public class AlunoDAO {
             stmt.setBigDecimal(4, pontuacaoTotal != null ? pontuacaoTotal : BigDecimal.ZERO);
             stmt.setObject(5, alunoId);
             stmt.setObject(6, escolaId);
-            stmt.executeUpdate();
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return (UUID) rs.getObject("id");
+                }
+            }
         }
+        return null;
     }
 
     private Aluno mapearResultSet(ResultSet rs) throws SQLException {

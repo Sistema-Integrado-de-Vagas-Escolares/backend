@@ -20,17 +20,22 @@ import java.util.UUID;
 public class CriterioDAO {
 
     public List<Criterio> listarTodos() throws SQLException {
-        String sql = "SELECT id, nome, descricao, pontos_base, categoria, tipo_resposta, ativo, ordem, created_at "
+        try (Connection conn = Conexao.getConnection()) {
+            return listarTodos(conn);
+        }
+    }
+
+    public List<Criterio> listarTodos(Connection conn) throws SQLException {
+        String sql = "SELECT id, codigo, nome, descricao, pontos_base, categoria, tipo_resposta, ativo, ordem, created_at "
                 + "FROM criterios "
                 + "ORDER BY ordem ASC, created_at ASC";
 
         List<Criterio> lista = new ArrayList<>();
-        try (Connection conn = Conexao.getConnection();
-                PreparedStatement stmt = conn.prepareStatement(sql);
+        try (PreparedStatement stmt = conn.prepareStatement(sql);
                 ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
                 Timestamp ts = rs.getTimestamp("created_at");
-                lista.add(new Criterio(
+                Criterio c = new Criterio(
                         rs.getObject("id", UUID.class),
                         rs.getString("nome"),
                         rs.getString("descricao"),
@@ -39,7 +44,9 @@ public class CriterioDAO {
                         rs.getString("tipo_resposta"),
                         rs.getBoolean("ativo"),
                         rs.getInt("ordem"),
-                        ts != null ? ts.toLocalDateTime() : null));
+                        ts != null ? ts.toLocalDateTime() : null);
+                c.setCodigo(rs.getString("codigo"));
+                lista.add(c);
             }
         }
         return lista;
@@ -47,10 +54,10 @@ public class CriterioDAO {
 
     public List<Criterio> substituirTodos(List<Criterio> criterios) throws SQLException {
         String sqlDeleteRemoved = "DELETE FROM criterios WHERE id = ?";
-        String sqlUpdate = "UPDATE criterios SET nome = ?, descricao = ?, pontos_base = ?, categoria = ?, "
+        String sqlUpdate = "UPDATE criterios SET codigo = ?, nome = ?, descricao = ?, pontos_base = ?, categoria = ?, "
                 + "tipo_resposta = ?, ativo = ?, ordem = ? WHERE id = ?";
-        String sqlInsert = "INSERT INTO criterios (id, nome, descricao, pontos_base, categoria, tipo_resposta, ativo, ordem) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sqlInsert = "INSERT INTO criterios (id, codigo, nome, descricao, pontos_base, categoria, tipo_resposta, ativo, ordem) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = Conexao.getConnection()) {
             conn.setAutoCommit(false);
@@ -78,25 +85,27 @@ public class CriterioDAO {
                         Criterio c = criterios.get(i);
                         int ordem = i + 1;
                         if (c.getId() != null && existentes.contains(c.getId())) {
-                            stmtUpdate.setString(1, c.getNome());
-                            stmtUpdate.setString(2, c.getDescricao());
-                            stmtUpdate.setBigDecimal(3, BigDecimal.valueOf(c.getPontosBase()));
-                            stmtUpdate.setString(4, c.getCategoria());
-                            stmtUpdate.setString(5, c.getTipoResposta());
-                            stmtUpdate.setBoolean(6, c.isAtivo());
-                            stmtUpdate.setInt(7, ordem);
-                            stmtUpdate.setObject(8, c.getId());
+                            stmtUpdate.setString(1, c.getCodigo());
+                            stmtUpdate.setString(2, c.getNome());
+                            stmtUpdate.setString(3, c.getDescricao());
+                            stmtUpdate.setBigDecimal(4, BigDecimal.valueOf(c.getPontosBase()));
+                            stmtUpdate.setString(5, c.getCategoria());
+                            stmtUpdate.setString(6, c.getTipoResposta());
+                            stmtUpdate.setBoolean(7, c.isAtivo());
+                            stmtUpdate.setInt(8, ordem);
+                            stmtUpdate.setObject(9, c.getId());
                             stmtUpdate.executeUpdate();
                         } else {
                             UUID novoId = c.getId() != null ? c.getId() : UUID.randomUUID();
                             stmtInsert.setObject(1, novoId);
-                            stmtInsert.setString(2, c.getNome());
-                            stmtInsert.setString(3, c.getDescricao());
-                            stmtInsert.setBigDecimal(4, BigDecimal.valueOf(c.getPontosBase()));
-                            stmtInsert.setString(5, c.getCategoria());
-                            stmtInsert.setString(6, c.getTipoResposta());
-                            stmtInsert.setBoolean(7, c.isAtivo());
-                            stmtInsert.setInt(8, ordem);
+                            stmtInsert.setString(2, c.getCodigo());
+                            stmtInsert.setString(3, c.getNome());
+                            stmtInsert.setString(4, c.getDescricao());
+                            stmtInsert.setBigDecimal(5, BigDecimal.valueOf(c.getPontosBase()));
+                            stmtInsert.setString(6, c.getCategoria());
+                            stmtInsert.setString(7, c.getTipoResposta());
+                            stmtInsert.setBoolean(8, c.isAtivo());
+                            stmtInsert.setInt(9, ordem);
                             stmtInsert.executeUpdate();
                         }
                     }

@@ -16,16 +16,16 @@ WHERE nome IN (
     'Proximidade Residencial (< 1 km)'
 );
 
-INSERT INTO criterios (id, nome, descricao, pontos_base, categoria, tipo_resposta, ativo, ordem) VALUES
-    ('587e96cc-5215-4fbc-b222-2a81a94ebc71', 'Renda familiar per capita', 'Pontuação máxima para renda até 1/4 do salário mínimo', 25.00, 'SOCIAL', 'FAIXA_VALORES', TRUE, 1),
-    ('2e8cf901-8177-4184-a315-4bc2f90f54ac', 'Aluno com deficiência ou necessidade especial (PcD)', 'Laudo médico comprobatório', 20.00, 'SOCIAL', 'SIM_NAO', TRUE, 2),
-    ('ba3d89a5-5262-4bbf-8b50-580125075121', 'Irmão matriculado na mesma escola', 'Criança com irmão já matriculado na mesma unidade escolar', 15.00, 'FAMILIAR', 'SIM_NAO', TRUE, 3),
-    ('a74087a8-b60f-4550-9b70-e753063bfa54', 'Vulnerabilidade socioeconômica', 'Família cadastrada no CadÚnico ou em situação de vulnerabilidade comprovada', 12.00, 'SOCIAL', 'SIM_NAO', TRUE, 4),
-    ('082fad5b-6ccc-4f42-a338-5a7165a5e7cd', 'Beneficiário do BPC/LOAS', 'Benefício de Prestação Continuada ativo', 10.00, 'SOCIAL', 'SIM_NAO', TRUE, 5),
-    ('a2448741-5c6c-490e-89a2-99433cc11df7', 'Beneficiário do Bolsa Família', 'Família inscrita e ativa no programa federal', 8.00, 'SOCIAL', 'SIM_NAO', TRUE, 6),
-    ('1e6b5e00-ef4f-4b0d-9fb2-201c3b5a1a52', 'Responsável solo', 'Mãe solteira, pai solteiro ou responsável único sem cônjuge', 6.00, 'FAMILIAR', 'SIM_NAO', TRUE, 7),
-    ('2ae5ca02-994d-4bae-96ab-6e3c68870f40', 'Mora de aluguel', 'Família não possui imóvel próprio e paga aluguel', 4.00, 'SOCIAL', 'SIM_NAO', TRUE, 8)
-ON CONFLICT (nome) DO NOTHING;
+INSERT INTO criterios (id, codigo, nome, descricao, pontos_base, categoria, tipo_resposta, ativo, ordem) VALUES
+    ('587e96cc-5215-4fbc-b222-2a81a94ebc71', 'RENDA', 'Renda familiar per capita', 'Pontuação máxima para renda até 1/4 do salário mínimo', 25.00, 'SOCIAL', 'FAIXA_VALORES', TRUE, 1),
+    ('2e8cf901-8177-4184-a315-4bc2f90f54ac', 'PCD', 'Aluno com deficiência ou necessidade especial (PcD)', 'Laudo médico comprobatório', 20.00, 'SOCIAL', 'SIM_NAO', TRUE, 2),
+    ('ba3d89a5-5262-4bbf-8b50-580125075121', 'IRMAO', 'Irmão matriculado na mesma escola', 'Criança com irmão já matriculado na mesma unidade escolar', 15.00, 'FAMILIAR', 'SIM_NAO', TRUE, 3),
+    ('a74087a8-b60f-4550-9b70-e753063bfa54', 'VULNERABILIDADE', 'Vulnerabilidade socioeconômica', 'Família cadastrada no CadÚnico ou em situação de vulnerabilidade comprovada', 12.00, 'SOCIAL', 'SIM_NAO', TRUE, 4),
+    ('082fad5b-6ccc-4f42-a338-5a7165a5e7cd', 'BPC_LOAS', 'Beneficiário do BPC/LOAS', 'Benefício de Prestação Continuada ativo', 10.00, 'SOCIAL', 'SIM_NAO', TRUE, 5),
+    ('a2448741-5c6c-490e-89a2-99433cc11df7', 'BOLSA_FAMILIA', 'Beneficiário do Bolsa Família', 'Família inscrita e ativa no programa federal', 8.00, 'SOCIAL', 'SIM_NAO', TRUE, 6),
+    ('1e6b5e00-ef4f-4b0d-9fb2-201c3b5a1a52', 'RESPONSAVEL_SOLO', 'Responsável solo', 'Mãe solteira, pai solteiro ou responsável único sem cônjuge', 6.00, 'FAMILIAR', 'SIM_NAO', TRUE, 7),
+    ('2ae5ca02-994d-4bae-96ab-6e3c68870f40', 'MORA_ALUGUEL', 'Mora de aluguel', 'Família não possui imóvel próprio e paga aluguel', 4.00, 'SOCIAL', 'SIM_NAO', TRUE, 8)
+ON CONFLICT (nome) DO UPDATE SET codigo = EXCLUDED.codigo;
 
 -- 2. Escola Autenticável
 INSERT INTO escolas (id, codigo, nome, bairro, cidade, capacidade_total, senha_hash) VALUES
@@ -70,15 +70,15 @@ BEGIN
     ON CONFLICT (cpf_hash) DO NOTHING;
 
     -- Alunos
-    INSERT INTO alunos (id, nome, cpf, cpf_hash, data_nascimento, cep, rua, numero, complemento, bairro, cidade, estado, renda_per_capita, tem_necessidade_especial) VALUES
-        ('0cbe60c2-4cd1-43ef-af8e-edd43e59d41f', 'Sofia Ferreira', '44bWuQZ3hnr3yQGnicQLOU05eyUsYyqBZL6o/IhIU9qpPryWzNUwk473', '56d3a4ec0599e29de1edf0e45cd273601b325753ffd7bc3ee8bcc82a7a0334bb', '2024-03-15', '01001-000', 'Praça da Sé', '100', NULL, 'Sé', 'São Paulo', 'SP', 550.00, FALSE),
-        ('4832c1a0-b260-4a8c-8dc2-31f5b8a9e2a3', 'Pedro Santos', '9fhTGXZGlO9k2YVn+KrJJulpMWYQeMZaix6+TvYYJCirG21ZrDF8ty+C', '22ad0932fd02cbc943c6453081a034c499fddee5fcc97549ade1feea39a0c969', '2023-08-10', '01310-100', 'Av. Paulista', '450', 'Apto 12', 'Bela Vista', 'São Paulo', 'SP', 680.00, TRUE),
-        ('5e0db97c-d192-4ab2-b3e2-e6743a973951', 'Maria Lima', '4U3LijU7SUD1MyHx2JNOEuJoli7OIhjQSOlOm9+Avlz5c2as9SoYNelS', '641478d8abfd21ee723817c9fc4e4f525a2485174094130d97b1fa6fb9548adb', '2022-05-20', '01415-000', 'Rua Bela Cintra', '210', NULL, 'Consolação', 'São Paulo', 'SP', 1100.00, FALSE),
-        ('f2e9321d-14a3-432b-9cd3-05200271d3c9', 'Lucas Oliveira', 'pVuLMirWOzXVPyzRsR9vPHEbHprBtP5BYmkN2bLjGwrcskFt2aFd7oLV', 'c66cdfeb4b90c2e550010c464baa32302ae2e744e85b64e0e5bb16ffd9d50b5c', '2024-06-01', '01501-000', 'Rua da Glória', '88', NULL, 'Liberdade', 'São Paulo', 'SP', 1500.00, FALSE),
-        ('02051910-24db-45a5-938a-bd0b13a26e0d', 'Gabriel Costa', 'uLzLU+gUoonyCAEl64tz+ozrrRWFHanyeZbAcN4FRlICIN5zp1WPq6Wc', 'f19de2c9677b85619d3df72a750a28d3cf39c4eb7dc4efcff827d6c26092d974', '2024-01-12', '01227-200', 'Av. Angélica', '320', NULL, 'Santa Cecília', 'São Paulo', 'SP', 600.00, FALSE),
-        ('e88b74e7-8de4-4009-a72a-02e22e421e17', 'Helena Souza', 'lcTY1kpVp8EVtlERz0UtsIgGLwIpCq1aCOgeSAJydauCwPEsCFjVrRMM', '7230bcc5f89d236de1db4a70ab5fbcb71be5feaa432e44bf9f849d27af0873e1', '2022-09-05', '01153-000', 'Rua Vitorino Carmilo', '55', 'Casa 2', 'Barra Funda', 'São Paulo', 'SP', 920.00, TRUE),
-        ('ff991bbe-2b4a-4e72-aaba-1b854639ab71', 'Arthur Almeida', '1Xpe8WsNZ0uhQQwd+QHeVZnSx35bh/HPQ1G2zVimvZF/v8y7y5hrvBIR', '939e7c8569f0e7afd0ae643aeca30f6c09fd14efa889d75e3f33e5ba334886b9', '2024-02-22', '01031-000', 'Av. Prestes Maia', '700', NULL, 'Centro', 'São Paulo', 'SP', 700.00, FALSE),
-        ('c416e004-3eae-4045-a573-742a59707edf', 'Valentina Rocha', 'Db1WWCTjMw1PmMVucC/znPkKVVZojJcjta7A/PBPTBk6xz8g+3YG1imG', '80d815105028ea80f7928b51844bac159b71609c5cc2b7bd3ccaeb5ab244b260', '2021-11-18', '01323-000', 'Rua São Joaquim', '140', NULL, 'Liberdade', 'São Paulo', 'SP', 1800.00, FALSE)
+    INSERT INTO alunos (id, nome, cpf, cpf_hash, data_nascimento, cep, rua, numero, complemento, bairro, cidade, estado, renda_per_capita, tem_necessidade_especial, vulnerabilidade_socioeconomica, responsavel_solo, mora_de_aluguel, bolsa_familia, bpc_loas, irmao_matriculado) VALUES
+        ('0cbe60c2-4cd1-43ef-af8e-edd43e59d41f', 'Sofia Ferreira', '44bWuQZ3hnr3yQGnicQLOU05eyUsYyqBZL6o/IhIU9qpPryWzNUwk473', '56d3a4ec0599e29de1edf0e45cd273601b325753ffd7bc3ee8bcc82a7a0334bb', '2024-03-15', '01001-000', 'Praça da Sé', '100', NULL, 'Sé', 'São Paulo', 'SP', 550.00, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE),
+        ('4832c1a0-b260-4a8c-8dc2-31f5b8a9e2a3', 'Pedro Santos', '9fhTGXZGlO9k2YVn+KrJJulpMWYQeMZaix6+TvYYJCirG21ZrDF8ty+C', '22ad0932fd02cbc943c6453081a034c499fddee5fcc97549ade1feea39a0c969', '2023-08-10', '01310-100', 'Av. Paulista', '450', 'Apto 12', 'Bela Vista', 'São Paulo', 'SP', 680.00, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE),
+        ('5e0db97c-d192-4ab2-b3e2-e6743a973951', 'Maria Lima', '4U3LijU7SUD1MyHx2JNOEuJoli7OIhjQSOlOm9+Avlz5c2as9SoYNelS', '641478d8abfd21ee723817c9fc4e4f525a2485174094130d97b1fa6fb9548adb', '2022-05-20', '01415-000', 'Rua Bela Cintra', '210', NULL, 'Consolação', 'São Paulo', 'SP', 1100.00, FALSE, TRUE, FALSE, FALSE, TRUE, TRUE, TRUE),
+        ('f2e9321d-14a3-432b-9cd3-05200271d3c9', 'Lucas Oliveira', 'pVuLMirWOzXVPyzRsR9vPHEbHprBtP5BYmkN2bLjGwrcskFt2aFd7oLV', 'c66cdfeb4b90c2e550010c464baa32302ae2e744e85b64e0e5bb16ffd9d50b5c', '2024-06-01', '01501-000', 'Rua da Glória', '88', NULL, 'Liberdade', 'São Paulo', 'SP', 1500.00, FALSE, TRUE, TRUE, TRUE, FALSE, TRUE, FALSE),
+        ('02051910-24db-45a5-938a-bd0b13a26e0d', 'Gabriel Costa', 'uLzLU+gUoonyCAEl64tz+ozrrRWFHanyeZbAcN4FRlICIN5zp1WPq6Wc', 'f19de2c9677b85619d3df72a750a28d3cf39c4eb7dc4efcff827d6c26092d974', '2024-01-12', '01227-200', 'Av. Angélica', '320', NULL, 'Santa Cecília', 'São Paulo', 'SP', 600.00, FALSE, TRUE, FALSE, TRUE, TRUE, TRUE, TRUE),
+        ('e88b74e7-8de4-4009-a72a-02e22e421e17', 'Helena Souza', 'lcTY1kpVp8EVtlERz0UtsIgGLwIpCq1aCOgeSAJydauCwPEsCFjVrRMM', '7230bcc5f89d236de1db4a70ab5fbcb71be5feaa432e44bf9f849d27af0873e1', '2022-09-05', '01153-000', 'Rua Vitorino Carmilo', '55', 'Casa 2', 'Barra Funda', 'São Paulo', 'SP', 920.00, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
+        ('ff991bbe-2b4a-4e72-aaba-1b854639ab71', 'Arthur Almeida', '1Xpe8WsNZ0uhQQwd+QHeVZnSx35bh/HPQ1G2zVimvZF/v8y7y5hrvBIR', '939e7c8569f0e7afd0ae643aeca30f6c09fd14efa889d75e3f33e5ba334886b9', '2024-02-22', '01031-000', 'Av. Prestes Maia', '700', NULL, 'Centro', 'São Paulo', 'SP', 700.00, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE),
+        ('c416e004-3eae-4045-a573-742a59707edf', 'Valentina Rocha', 'Db1WWCTjMw1PmMVucC/znPkKVVZojJcjta7A/PBPTBk6xz8g+3YG1imG', '80d815105028ea80f7928b51844bac159b71609c5cc2b7bd3ccaeb5ab244b260', '2021-11-18', '01323-000', 'Rua São Joaquim', '140', NULL, 'Liberdade', 'São Paulo', 'SP', 1800.00, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE)
     ON CONFLICT (cpf_hash) DO NOTHING;
 
     -- Vínculos Aluno - Responsável
@@ -95,15 +95,71 @@ BEGIN
 
     -- Inscrições / Chamados com estados variados (escala 0-100)
     INSERT INTO inscricoes (id, aluno_id, escola_id, turma_id, tipo_vaga, serie_ano, turno, protocolo, data_inscricao, pontuacao_total, status, data_chamada) VALUES
-        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', '0cbe60c2-4cd1-43ef-af8e-edd43e59d41f', v_escola_id, NULL, 'CRECHE', 'Maternal I',  'MANHA',    'SIVE-STG0001', CURRENT_TIMESTAMP - INTERVAL '10 days', 85.00, 'EM_ESPERA',   NULL),
+        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', '0cbe60c2-4cd1-43ef-af8e-edd43e59d41f', v_escola_id, NULL, 'CRECHE', 'Maternal I',  'MANHA',    'SIVE-STG0001', CURRENT_TIMESTAMP - INTERVAL '10 days', 80.00, 'EM_ESPERA',   NULL),
         ('141c2777-8e67-407c-ac8c-d760bdaf702b', '4832c1a0-b260-4a8c-8dc2-31f5b8a9e2a3', v_escola_id, NULL, 'CRECHE', 'Maternal II', 'INTEGRAL', 'SIVE-STG0002', CURRENT_TIMESTAMP - INTERVAL '9 days',  72.00, 'EM_ESPERA',   NULL),
         ('6769c5d1-7d0e-443b-94a3-6d6ecc485a2d', '5e0db97c-d192-4ab2-b3e2-e6743a973951', v_escola_id, NULL, 'CRECHE', 'Fase I',      'TARDE',    'SIVE-STG0003', CURRENT_TIMESTAMP - INTERVAL '8 days',  60.00, 'EM_ESPERA',   NULL),
         ('7683d9a1-7340-49a0-843f-5f33f5c6d828', 'f2e9321d-14a3-432b-9cd3-05200271d3c9', v_escola_id, NULL, 'CRECHE', 'Maternal I',  'INTEGRAL', 'SIVE-STG0004', CURRENT_TIMESTAMP - INTERVAL '7 days',  40.00, 'EM_ESPERA',   NULL),
-        ('655bf925-bb05-4f60-bd14-253bdb611426', '02051910-24db-45a5-938a-bd0b13a26e0d', v_escola_id, NULL, 'CRECHE', 'Maternal I',  'MANHA',    'SIVE-STG0005', CURRENT_TIMESTAMP - INTERVAL '12 days', 88.00, 'CHAMADO',     CURRENT_TIMESTAMP - INTERVAL '1 day'),
+        ('655bf925-bb05-4f60-bd14-253bdb611426', '02051910-24db-45a5-938a-bd0b13a26e0d', v_escola_id, NULL, 'CRECHE', 'Maternal I',  'MANHA',    'SIVE-STG0005', CURRENT_TIMESTAMP - INTERVAL '12 days', 74.00, 'CHAMADO',     CURRENT_TIMESTAMP - INTERVAL '1 day'),
         ('9f5fee8f-1c39-4a41-8879-79998b75c6cf', 'e88b74e7-8de4-4009-a72a-02e22e421e17', v_escola_id, NULL, 'CRECHE', 'Fase I',      'TARDE',    'SIVE-STG0006', CURRENT_TIMESTAMP - INTERVAL '11 days', 75.00, 'CHAMADO',     CURRENT_TIMESTAMP - INTERVAL '2 days'),
-        ('07413f09-c9f8-4c5f-b930-c105c05ac056', 'ff991bbe-2b4a-4e72-aaba-1b854639ab71', v_escola_id, '39719b1e-e90f-4d95-ad8f-d8ec3107e66f', 'CRECHE', 'Maternal I', 'MANHA', 'SIVE-STG0007', CURRENT_TIMESTAMP - INTERVAL '15 days', 90.00, 'MATRICULADO', CURRENT_TIMESTAMP - INTERVAL '5 days'),
+        ('07413f09-c9f8-4c5f-b930-c105c05ac056', 'ff991bbe-2b4a-4e72-aaba-1b854639ab71', v_escola_id, '39719b1e-e90f-4d95-ad8f-d8ec3107e66f', 'CRECHE', 'Maternal I', 'MANHA', 'SIVE-STG0007', CURRENT_TIMESTAMP - INTERVAL '15 days', 80.00, 'MATRICULADO', CURRENT_TIMESTAMP - INTERVAL '5 days'),
         ('d8ee7202-dfeb-46f9-9d4f-5662ff87975f', 'c416e004-3eae-4045-a573-742a59707edf', v_escola_id, NULL, 'CRECHE', 'Fase II',     'MANHA',    'SIVE-STG0008', CURRENT_TIMESTAMP - INTERVAL '20 days', 35.00, 'EXPIRADO',    CURRENT_TIMESTAMP - INTERVAL '10 days')
     ON CONFLICT (protocolo) DO NOTHING;
+
+    -- Detalhamento dos critérios pontuados por inscrição (consistente com pontuacao_total)
+    INSERT INTO inscricao_criterios (inscricao_id, criterio_id, pontos_obtidos) VALUES
+        -- Sofia (80.00)
+        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', (SELECT id FROM criterios WHERE codigo = 'RENDA'), 25.00),
+        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', (SELECT id FROM criterios WHERE codigo = 'IRMAO'), 15.00),
+        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', (SELECT id FROM criterios WHERE codigo = 'VULNERABILIDADE'), 12.00),
+        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', (SELECT id FROM criterios WHERE codigo = 'BPC_LOAS'), 10.00),
+        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', (SELECT id FROM criterios WHERE codigo = 'BOLSA_FAMILIA'), 8.00),
+        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', (SELECT id FROM criterios WHERE codigo = 'RESPONSAVEL_SOLO'), 6.00),
+        ('6cf163c9-7520-43e7-834b-9e5d0fad87b7', (SELECT id FROM criterios WHERE codigo = 'MORA_ALUGUEL'), 4.00),
+        -- Pedro (72.00)
+        ('141c2777-8e67-407c-ac8c-d760bdaf702b', (SELECT id FROM criterios WHERE codigo = 'RENDA'), 25.00),
+        ('141c2777-8e67-407c-ac8c-d760bdaf702b', (SELECT id FROM criterios WHERE codigo = 'PCD'), 20.00),
+        ('141c2777-8e67-407c-ac8c-d760bdaf702b', (SELECT id FROM criterios WHERE codigo = 'IRMAO'), 15.00),
+        ('141c2777-8e67-407c-ac8c-d760bdaf702b', (SELECT id FROM criterios WHERE codigo = 'VULNERABILIDADE'), 12.00),
+        -- Maria (60.00)
+        ('6769c5d1-7d0e-443b-94a3-6d6ecc485a2d', (SELECT id FROM criterios WHERE codigo = 'RENDA'), 15.00),
+        ('6769c5d1-7d0e-443b-94a3-6d6ecc485a2d', (SELECT id FROM criterios WHERE codigo = 'IRMAO'), 15.00),
+        ('6769c5d1-7d0e-443b-94a3-6d6ecc485a2d', (SELECT id FROM criterios WHERE codigo = 'VULNERABILIDADE'), 12.00),
+        ('6769c5d1-7d0e-443b-94a3-6d6ecc485a2d', (SELECT id FROM criterios WHERE codigo = 'BPC_LOAS'), 10.00),
+        ('6769c5d1-7d0e-443b-94a3-6d6ecc485a2d', (SELECT id FROM criterios WHERE codigo = 'BOLSA_FAMILIA'), 8.00),
+        -- Lucas (40.00)
+        ('7683d9a1-7340-49a0-843f-5f33f5c6d828', (SELECT id FROM criterios WHERE codigo = 'RENDA'), 8.00),
+        ('7683d9a1-7340-49a0-843f-5f33f5c6d828', (SELECT id FROM criterios WHERE codigo = 'VULNERABILIDADE'), 12.00),
+        ('7683d9a1-7340-49a0-843f-5f33f5c6d828', (SELECT id FROM criterios WHERE codigo = 'BPC_LOAS'), 10.00),
+        ('7683d9a1-7340-49a0-843f-5f33f5c6d828', (SELECT id FROM criterios WHERE codigo = 'RESPONSAVEL_SOLO'), 6.00),
+        ('7683d9a1-7340-49a0-843f-5f33f5c6d828', (SELECT id FROM criterios WHERE codigo = 'MORA_ALUGUEL'), 4.00),
+        -- Gabriel (74.00)
+        ('655bf925-bb05-4f60-bd14-253bdb611426', (SELECT id FROM criterios WHERE codigo = 'RENDA'), 25.00),
+        ('655bf925-bb05-4f60-bd14-253bdb611426', (SELECT id FROM criterios WHERE codigo = 'IRMAO'), 15.00),
+        ('655bf925-bb05-4f60-bd14-253bdb611426', (SELECT id FROM criterios WHERE codigo = 'VULNERABILIDADE'), 12.00),
+        ('655bf925-bb05-4f60-bd14-253bdb611426', (SELECT id FROM criterios WHERE codigo = 'BPC_LOAS'), 10.00),
+        ('655bf925-bb05-4f60-bd14-253bdb611426', (SELECT id FROM criterios WHERE codigo = 'BOLSA_FAMILIA'), 8.00),
+        ('655bf925-bb05-4f60-bd14-253bdb611426', (SELECT id FROM criterios WHERE codigo = 'MORA_ALUGUEL'), 4.00),
+        -- Helena (75.00)
+        ('9f5fee8f-1c39-4a41-8879-79998b75c6cf', (SELECT id FROM criterios WHERE codigo = 'RENDA'), 15.00),
+        ('9f5fee8f-1c39-4a41-8879-79998b75c6cf', (SELECT id FROM criterios WHERE codigo = 'PCD'), 20.00),
+        ('9f5fee8f-1c39-4a41-8879-79998b75c6cf', (SELECT id FROM criterios WHERE codigo = 'VULNERABILIDADE'), 12.00),
+        ('9f5fee8f-1c39-4a41-8879-79998b75c6cf', (SELECT id FROM criterios WHERE codigo = 'BPC_LOAS'), 10.00),
+        ('9f5fee8f-1c39-4a41-8879-79998b75c6cf', (SELECT id FROM criterios WHERE codigo = 'BOLSA_FAMILIA'), 8.00),
+        ('9f5fee8f-1c39-4a41-8879-79998b75c6cf', (SELECT id FROM criterios WHERE codigo = 'RESPONSAVEL_SOLO'), 6.00),
+        ('9f5fee8f-1c39-4a41-8879-79998b75c6cf', (SELECT id FROM criterios WHERE codigo = 'MORA_ALUGUEL'), 4.00),
+        -- Arthur (80.00)
+        ('07413f09-c9f8-4c5f-b930-c105c05ac056', (SELECT id FROM criterios WHERE codigo = 'RENDA'), 25.00),
+        ('07413f09-c9f8-4c5f-b930-c105c05ac056', (SELECT id FROM criterios WHERE codigo = 'IRMAO'), 15.00),
+        ('07413f09-c9f8-4c5f-b930-c105c05ac056', (SELECT id FROM criterios WHERE codigo = 'VULNERABILIDADE'), 12.00),
+        ('07413f09-c9f8-4c5f-b930-c105c05ac056', (SELECT id FROM criterios WHERE codigo = 'BPC_LOAS'), 10.00),
+        ('07413f09-c9f8-4c5f-b930-c105c05ac056', (SELECT id FROM criterios WHERE codigo = 'BOLSA_FAMILIA'), 8.00),
+        ('07413f09-c9f8-4c5f-b930-c105c05ac056', (SELECT id FROM criterios WHERE codigo = 'RESPONSAVEL_SOLO'), 6.00),
+        ('07413f09-c9f8-4c5f-b930-c105c05ac056', (SELECT id FROM criterios WHERE codigo = 'MORA_ALUGUEL'), 4.00),
+        -- Valentina (35.00)
+        ('d8ee7202-dfeb-46f9-9d4f-5662ff87975f', (SELECT id FROM criterios WHERE codigo = 'RENDA'), 8.00),
+        ('d8ee7202-dfeb-46f9-9d4f-5662ff87975f', (SELECT id FROM criterios WHERE codigo = 'IRMAO'), 15.00),
+        ('d8ee7202-dfeb-46f9-9d4f-5662ff87975f', (SELECT id FROM criterios WHERE codigo = 'VULNERABILIDADE'), 12.00)
+    ON CONFLICT (inscricao_id, criterio_id) DO NOTHING;
 
     -- Histórico inicial de atualizações de vagas
     INSERT INTO historico_vagas (id, escola_id, turma_id, vagas_anteriores, vagas_novas, motivo, created_at) VALUES

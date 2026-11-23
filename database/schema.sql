@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS aluno_responsaveis (
 -- 6. Tabela de Critérios de Pontuação
 CREATE TABLE IF NOT EXISTS criterios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    codigo VARCHAR(50),
     nome VARCHAR(100) NOT NULL UNIQUE,
     descricao TEXT NOT NULL DEFAULT '',
     pontos_base NUMERIC(5, 2) NOT NULL CHECK (pontos_base >= 0),

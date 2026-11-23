@@ -84,6 +84,81 @@ public class AlunoDetalhe {
         }
     }
 
+    public static class CriterioPontuadoDetalhe {
+        private UUID criterioId;
+        private String codigo;
+        private String nome;
+        private String categoria;
+        private BigDecimal pontosBase;
+        private BigDecimal pontosObtidos;
+
+        public CriterioPontuadoDetalhe() {
+        }
+
+        public CriterioPontuadoDetalhe(
+                UUID criterioId,
+                String codigo,
+                String nome,
+                String categoria,
+                BigDecimal pontosBase,
+                BigDecimal pontosObtidos) {
+            this.criterioId = criterioId;
+            this.codigo = codigo;
+            this.nome = nome;
+            this.categoria = categoria;
+            this.pontosBase = pontosBase;
+            this.pontosObtidos = pontosObtidos;
+        }
+
+        public UUID getCriterioId() {
+            return criterioId;
+        }
+
+        public void setCriterioId(UUID criterioId) {
+            this.criterioId = criterioId;
+        }
+
+        public String getCodigo() {
+            return codigo;
+        }
+
+        public void setCodigo(String codigo) {
+            this.codigo = codigo;
+        }
+
+        public String getNome() {
+            return nome;
+        }
+
+        public void setNome(String nome) {
+            this.nome = nome;
+        }
+
+        public String getCategoria() {
+            return categoria;
+        }
+
+        public void setCategoria(String categoria) {
+            this.categoria = categoria;
+        }
+
+        public BigDecimal getPontosBase() {
+            return pontosBase;
+        }
+
+        public void setPontosBase(BigDecimal pontosBase) {
+            this.pontosBase = pontosBase;
+        }
+
+        public BigDecimal getPontosObtidos() {
+            return pontosObtidos;
+        }
+
+        public void setPontosObtidos(BigDecimal pontosObtidos) {
+            this.pontosObtidos = pontosObtidos;
+        }
+    }
+
     private UUID id;
     private String nome;
     private String cpf;
@@ -108,9 +183,11 @@ public class AlunoDetalhe {
     private LocalDateTime dataInscricao;
     private LocalDateTime dataChamada;
     private List<ResponsavelVinculadoDetalhe> responsaveis;
+    private List<CriterioPontuadoDetalhe> criteriosPontuados;
 
     public AlunoDetalhe() {
         this.responsaveis = new ArrayList<>();
+        this.criteriosPontuados = new ArrayList<>();
     }
 
     public AlunoDetalhe(
@@ -148,6 +225,7 @@ public class AlunoDetalhe {
         this.dataInscricao = dataInscricao;
         this.dataChamada = dataChamada;
         this.responsaveis = responsaveis != null ? responsaveis : new ArrayList<>();
+        this.criteriosPontuados = new ArrayList<>();
     }
 
     public UUID getId() {
@@ -340,5 +418,13 @@ public class AlunoDetalhe {
 
     public void setResponsaveis(List<ResponsavelVinculadoDetalhe> responsaveis) {
         this.responsaveis = responsaveis;
+    }
+
+    public List<CriterioPontuadoDetalhe> getCriteriosPontuados() {
+        return criteriosPontuados;
+    }
+
+    public void setCriteriosPontuados(List<CriterioPontuadoDetalhe> criteriosPontuados) {
+        this.criteriosPontuados = criteriosPontuados;
     }
 }
