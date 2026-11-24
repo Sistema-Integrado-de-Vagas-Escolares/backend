@@ -1,6 +1,6 @@
 # Diagrama de Atividades — SIVE
 
-O Diagrama de Atividades descreve o fluxo de processo de **Solicitação de Vaga e Processamento da Inscrição**, desde o envio inicial pelo responsável até a inclusão ordenada na fila de espera.
+O Diagrama de Atividades ilustra o fluxo completo do processo de **Cadastro Familiar, Cálculo de Pontuação e Inscrição na Fila de Espera**, incorporando a criptografia de dados sensíveis (LGPD) e o motor Strategy.
 
 ---
 
@@ -8,54 +8,60 @@ O Diagrama de Atividades descreve o fluxo de processo de **Solicitação de Vaga
 
 ```mermaid
 flowchart TD
-    Inicio([Início: Responsável solicita vaga]) --> ReceberPayload["Receber dados do Aluno e Turma no Controller"]
-    ReceberPayload --> ValidarCadastro{"Aluno e Responsável cadastrados?"}
+    Inicio([Início: Cidadão preenche solicitação de vaga]) --> ReceberPayload["Receber payload da inscrição no Controller"]
+    ReceberPayload --> ValidarDados{"Dados obrigatórios válidos?"}
 
-    ValidarCadastro -- Não --> RetornarErroCadastro["Retornar HTTP 400: Dados inválidos/incompletos"] --> FimErro([Fim com Erro])
-    ValidarCadastro -- Sim --> ChecarDuplicidade{"Aluno já possui inscrição ativa na turma?"}
+    ValidarDados -- Não --> ErroValidacao["Lançar IllegalArgumentException (HTTP 400)"] --> FimErro([Fim com Erro])
+    ValidarDados -- Sim --> ProcessarCripto["CpfCryptoService: Criptografar CPF (AES) e gerar Hash SHA-256"]
 
-    ChecarDuplicidade -- Sim --> LancarAlunoInscrito["Lançar AlunoJaInscritoException (HTTP 409)"] --> FimErro
-    ChecarDuplicidade -- Não --> GerarProtocolo["Gerar código único de protocolo"]
+    ProcessarCripto --> BuscarAluno{"Aluno já existe na base?"}
+    BuscarAluno -- Sim --> ObterAluno["Recuperar dados do Aluno existente"]
+    BuscarAluno -- Não --> CriarAluno["Persistir novo Aluno com Endereço e Dados Socioeconômicos"]
 
-    GerarProtocolo --> BuscarCriterios["Consultar critérios ativos no banco"]
-    BuscarCriterios --> IniciarCalculoPontos["Iterar critérios via CriterioStrategyFactory"]
+    ObterAluno --> AssociarResponsavel["Vincular Responsável Legal (AlunoResponsavel N:N)"]
+    CriarAluno --> AssociarResponsavel
+
+    AssociarResponsavel --> VerificarDuplicidade{"Aluno já possui inscrição ativa nesta turma?"}
+    VerificarDuplicidade -- Sim --> LancarDuplicado["Lançar AlunoJaInscritoException (HTTP 409)"] --> FimErro
+
+    VerificarDuplicidade -- Não --> GerarProtocolo["Gerar código único de protocolo da inscrição"]
+
+    GerarProtocolo --> BuscarCriterios["Consultar critérios de pontuação ativos no banco (CriterioDAO)"]
+    BuscarCriterios --> IniciarStrategy["Iterar critérios via CriterioStrategyFactory"]
 
     subgraph CalculoStrategy["Motor de Pontuação Strategy"]
         direction TB
-        Criterio1["Calcular CriterioRendaStrategy"]
-        Criterio2["Calcular CriterioProximidadeStrategy"]
-        Criterio3["Calcular CriterioIrmaoStrategy"]
-        Criterio4["Calcular CriterioPcdStrategy"]
-        Somar["Totalizar pontos obtidos"]
-        Criterio1 --> Somar
-        Criterio2 --> Somar
-        Criterio3 --> Somar
-        Criterio4 --> Somar
+        CriterioRenda["CriterioRendaStrategy: Avaliar renda per capita"]
+        CriterioBool["CriterioBooleanoStrategy: Avaliar flags\n(Deficiência, Mãe solo, Aluguel, Bolsa Família, BPC, Irmão)"]
+        CriterioManual["CriterioSemRegraAutomaticaStrategy: Critérios manuais"]
+        SomarPontos["Somar pontuações obtidas e registrar em InscricaoCriterio"]
+        CriterioRenda --> SomarPontos
+        CriterioBool --> SomarPontos
+        CriterioManual --> SomarPontos
     end
 
-    IniciarCalculoPontos --> CalculoStrategy
-    CalculoStrategy --> DefinirStatus["Definir Status = EM_ESPERA"]
+    IniciarStrategy --> CalculoStrategy
+    CalculoStrategy --> DefinirStatus["Definir Status = EM_ESPERA e pontuação total"]
 
-    DefinirStatus --> SalvarInscricao["Persistir Inscrição e Detalhes no BD (InscricaoDAO)"]
-    SalvarInscricao --> DispararThread["Disparar TarefaRecalcularFila em Thread separada"]
+    DefinirStatus --> PersistirInscricao["Persistir Inscrição no Banco (InscricaoDAO)"]
+    PersistirInscricao --> DispararThread["Disparar TarefaRecalcularFila em Thread paralela"]
 
-    subgraph ThreadAsync["Thread Concorrente em Background"]
-        OrdenarFila["Recuperar todas as inscrições EM_ESPERA da turma"]
-        OrdenarFila --> OrdenarDecrescente["Ordenar por pontuação DESC e data ASC"]
-        OrdenarDecrescente --> AtualizarPosicoes["Atualizar posicao_fila de cada candidato no BD"]
+    subgraph BackgroundAsync["Processamento Concorrente em Segundo Plano"]
+        RecuperarFila["Buscar todas as inscrições EM_ESPERA da turma"]
+        RecuperarFila --> Ordenar["Ordenar por pontuação DESC e data de inscrição ASC"]
+        Ordenar --> AtualizarPosicoes["Atualizar coluna posicao_fila em lote (executeBatch)"]
     end
 
-    DispararThread -.-> ThreadAsync
-    DispararThread --> RetornarSucesso["Retornar HTTP 201 com Protocolo e Pontuação"]
+    DispararThread -.-> BackgroundAsync
+    DispararThread --> RetornarSucesso["Retornar HTTP 201 com Protocolo, Posição e Detalhamento de Pontos"]
     RetornarSucesso --> FimSucesso([Fim com Sucesso])
 ```
 
 ---
 
-## Principais Decisões e Condições do Fluxo
+## Principais Etapas e Decisões do Fluxo
 
-1. **Validação Preliminar:** Garante que a criança e seus responsáveis legais estejam previamente registrados na base e devidamente associados.
-2. **Prevenção de Duplicidade:** Evita que o mesmo aluno tenha duas inscrições ativas concorrentes para a mesma turma.
-3. **Cálculo Polimórfico:** Executa dinamicamente as estratégias ativas sem engessar as regras no banco ou na requisição.
-4. **Reclassificação Concorrente:** A reclassificação da fila não bloqueia a resposta da requisição REST, sendo delegada para uma thread em background (`Runnable`).
-
+1. **Tratamento de Privacidade (LGPD):** O CPF do aluno e dos responsáveis é imediatamente cifrado em formato reversível seguro (`AES-GCM`) para armazenamento e tem um hash (`SHA-256`) gerado para viabilizar pesquisas sem decifrar registros em massa.
+2. **Prevenção de Inscrições Duplicadas:** O sistema bloqueia requisições duplicadas para a mesma turma lançando `AlunoJaInscritoException` (HTTP 409).
+3. **Cálculo Desacoplado via Strategy:** Cada critério ativo é avaliado por uma estratégia específica, garantindo que novas regras socioeconômicas possam ser introduzidas sem alterar o fluxo principal de inscrição.
+4. **Reclassificação Assíncrona:** A fila da turma é reordenada concorrentemente via `TarefaRecalcularFila`, permitindo que a resposta HTTP seja entregue de imediato ao cidadão.

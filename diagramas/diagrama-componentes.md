@@ -1,6 +1,6 @@
 # Diagrama de Componentes — SIVE
 
-O Diagrama de Componentes apresenta a divisão de blocos executáveis e subsistemas de software do **SIVE**, ilustrando a comunicação entre a camada externa de consumo HTTP, o servidor Spring Boot e a persistência de dados.
+O Diagrama de Componentes apresenta a divisão modular do sistema **SIVE**, incluindo os portais de consumo, módulos de autenticação/segurança, processamento assíncrono e banco de dados relacional.
 
 ---
 
@@ -8,58 +8,87 @@ O Diagrama de Componentes apresenta a divisão de blocos executáveis e subsiste
 
 ```mermaid
 flowchart TD
-    subgraph Clientes["Clientes & Consumidores"]
-        WebBrowser["Navegador Web / Portal do Cidadão"]
-        AdminPortal["Painel Administrativo da Educação"]
+    subgraph Consumidores["Clientes / Interfaces do Usuário"]
+        PortalPublico["Portal do Cidadão (Web/SPA)\n- Cadastro e Inscrição\n- Consulta Pública"]
+        PainelEscola["Painel Administrativo da Escola\n- Login e Gestão de Vagas\n- Convocação e Matrícula"]
     end
 
     subgraph BackendApp["SIVE Backend (Spring Boot 3.3.5 / Java 17)"]
+        subgraph ModuloSeguranca["Componente de Segurança & Interceptação"]
+            AuthInterceptor["EscolaAuthInterceptor\n(Bearer Token / Header)"]
+            CryptoModule["CpfCryptoService & PasswordHasher\n(AES-GCM / SHA-256 / BCrypt)"]
+            TokenModule["TokenService"]
+        end
+
         subgraph ModuloREST["Componente de Entrada (REST API)"]
-            Controllers["REST Controllers\n(Escola, Turma, Responsavel, Aluno, Inscricao)"]
-            GlobalHandler["GlobalExceptionHandler\n(@RestControllerAdvice)"]
+            AuthController["AuthController (/api/auth)"]
+            EscolaPainelCtrl["EscolaPainelController (/api/escola-painel)"]
+            ConsultaCtrl["ConsultaPublicaController (/api/consulta-publica)"]
+            EscolaCtrl["EscolaController (/api/escolas)"]
+            TurmaCtrl["TurmaController (/api/turmas)"]
+            AlunoCtrl["AlunoController (/api/alunos)"]
+            GlobalHandler["GlobalExceptionHandler (@RestControllerAdvice)"]
         end
 
-        subgraph ModuloServicos["Componente de Domínio & Regras de Negócio"]
-            Services["Services\n(InscricaoService, TurmaService, EscolaService, etc.)"]
-            StrategyEngine["Motor de Pontuação Strategy\n(CriterioStrategyFactory & Estratégias)"]
+        subgraph ModuloNegocio["Componente de Serviços & Regras de Negócio"]
+            AuthService["AuthService"]
+            InscricaoService["InscricaoService"]
+            TurmaService["TurmaService (synchronized alocarVaga)"]
+            HistoricoService["HistoricoVagaService"]
+            ConsultaService["ConsultaPublicaService"]
+            StrategyEngine["Motor Strategy\n(CriterioStrategyFactory, CriterioRenda, CriterioBooleano)"]
         end
 
-        subgraph ModuloConcorrencia["Componente de Tarefas & Threads"]
-            AsyncTasks["Tarefas Assíncronas (Runnable)\n(RecalcularFila, Notificacoes, Estatisticas)"]
+        subgraph ModuloConcorrencia["Componente de Concorrência & Background"]
+            RecalcularTask["TarefaRecalcularFila (Runnable)"]
+            NotificarTask["TarefaNotificarChamada (Runnable)"]
+            EstatisticasTask["TarefaCalcularEstatisticas (Runnable)"]
         end
 
-        subgraph ModuloAcessoDados["Componente de Acesso a Dados (JDBC Nativo)"]
-            DAOs["DAOs JDBC\n(EscolaDAO, TurmaDAO, AlunoDAO, InscricaoDAO, etc.)"]
-            ConnectionPool["Gerenciador de Conexão\n(com.sive.dao.Conexao)"]
+        subgraph ModuloPersistencia["Componente de Acesso a Dados (JDBC Nativo)"]
+            DAOs["DAOs JDBC\n(AlunoDAO, ResponsavelDAO, TurmaDao, InscricaoDAO,\nEscolaDAO, ConsultaPublicaDAO, HistoricoVagaDAO, CriterioDAO)"]
+            ConexaoManager["Gerenciador de Conexão JDBC\n(com.sive.dao.Conexao)"]
         end
     end
 
-    subgraph Infraestrutura["Infraestrutura de Persistência"]
-        PostgresDB[("PostgreSQL 16\n(sive_db em Docker)")]
+    subgraph Infraestrutura["Infraestrutura de Dados"]
+        PostgresDB[("PostgreSQL 16 (sive_db)\n- 9 Tabelas Normalizadas\n- Índices e Constraints")]
     end
 
-    %% Ligações entre componentes
-    WebBrowser -->|JSON / HTTP REST| Controllers
-    AdminPortal -->|JSON / HTTP REST| Controllers
-    Controllers --> GlobalHandler
+    %% Ligações dos Clientes
+    PortalPublico -->|HTTP REST JSON| ModuloREST
+    PainelEscola -->|HTTP REST JSON com Bearer Token| AuthInterceptor
+    AuthInterceptor --> ModuloREST
 
-    Controllers --> Services
-    Services --> StrategyEngine
-    Services --> AsyncTasks
-    Services --> DAOs
-    AsyncTasks --> DAOs
+    %% Segurança no fluxo de entrada
+    AuthController --> AuthService
+    AuthService --> TokenModule
+    AuthService --> CryptoModule
+    ModuloREST --> GlobalHandler
 
-    DAOs --> ConnectionPool
-    ConnectionPool -->|Driver JDBC PostgreSQL 42.7.4| PostgresDB
+    %% REST para Serviços
+    ModuloREST --> ModuloNegocio
+    ModuloNegocio --> StrategyEngine
+    ModuloNegocio --> ModuloConcorrencia
+
+    %% Serviços e Tarefas para DAOs
+    ModuloNegocio --> ModuloPersistencia
+    ModuloConcorrencia --> ModuloPersistencia
+    DAOs --> CryptoModule
+    DAOs --> ConexaoManager
+
+    %% Conexão ao Banco
+    ConexaoManager -->|Driver PostgreSQL JDBC 42.7.4| PostgresDB
 ```
 
 ---
 
-## Detalhamento dos Componentes
+## Descrição dos Módulos Principais
 
-- **Componente de Entrada (REST API):** Ponto de terminação HTTP. Controladores recebem e validam DTOs e cargas úteis JSON, enquanto o `GlobalExceptionHandler` unifica os erros 400, 404, 409 e 500.
-- **Componente de Domínio & Regras de Negócio:** Contém os serviços que coordenam o ciclo de vida das inscrições, a sincronização do saldo de vagas (`synchronized`) e a invocação polimórfica de estratégias de pontuação.
-- **Componente de Tarefas & Threads:** Isola tarefas demoradas e intensivas de I/O em threads em background com sincronização por `start()` e `join()`.
-- **Componente de Acesso a Dados:** Utiliza JDBC nativo via `java.sql` com transações manuais para evitar *overhead* de ORM e garantir controle atômico rigoroso nas operações de reserva de vagas.
-- **PostgreSQL 16:** Banco de dados relacional orquestrado via Docker Compose, com constraints de integridade referencial e chaves estrangeiras.
-
+- **Componente de Segurança & Interceptação:**
+  - `EscolaAuthInterceptor`: intercepta e protege endpoints administrativos exigindo token válido (`Authorization: Bearer <token>`).
+  - `CpfCryptoService`: cifra e decifra CPFs com AES e gera hashes determinísticos em SHA-256 para buscas diretas sem expor dados pessoais (LGPD).
+  - `PasswordHasher`: valida senhas criptografadas com salt via algoritmo BCrypt.
+- **Componente de Entrada (REST API):** Endpoints segmentados por domínio funcional (autenticação, painel gestor, consulta pública com CAPTCHA/busca segura, CRUD de escolas e turmas).
+- **Componente de Concorrência:** Isola rotas pesadas em threads em background com sincronização por `join()` e execução assíncrona.
+- **Componente de Acesso a Dados (JDBC Nativo):** Transações manuais via `java.sql` garantindo consistência estrita sem abstrações pesadas de ORM.

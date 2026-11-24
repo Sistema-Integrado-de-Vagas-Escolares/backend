@@ -1,6 +1,6 @@
 # Diagrama de Pacotes — SIVE
 
-O Diagrama de Pacotes documenta a organização modular do código-fonte Java (`com.sive`) e a dependência direta entre camadas arquiteturais, respeitando o princípio de responsabilidade única.
+O Diagrama de Pacotes documenta a arquitetura de módulos do backend em `com.sive`, ilustrando o isolamento de responsabilidades entre controladores, serviços de aplicação, regras de segurança, persistência e modelos.
 
 ---
 
@@ -11,58 +11,85 @@ flowchart TD
     subgraph com_sive["com.sive"]
         App["SiveApplication.java"]
 
+        subgraph security["security"]
+            AuthInterceptor["EscolaAuthInterceptor"]
+            TokenService["TokenService"]
+            CryptoService["CpfCryptoService"]
+            PwdHasher["PasswordHasher"]
+            WebConfig["WebConfig"]
+        end
+
         subgraph controller["controller"]
+            AuthController["AuthController"]
+            EscolaPainelCtrl["EscolaPainelController"]
+            ConsultaCtrl["ConsultaPublicaController"]
             EscolaController["EscolaController"]
             TurmaController["TurmaController"]
-            ResponsavelController["ResponsavelController"]
             AlunoController["AlunoController"]
-            InscricaoController["InscricaoController"]
-            GlobalExceptionHandler["GlobalExceptionHandler"]
+            ResponsavelController["ResponsavelController"]
+            HealthController["HealthController"]
+            GlobalHandler["GlobalExceptionHandler"]
         end
 
         subgraph service["service"]
-            EscolaService["EscolaService"]
+            AuthService["AuthService"]
+            EscolaPainelSvc["EscolaPainelService / EscolaService"]
             TurmaService["TurmaService"]
-            ResponsavelService["ResponsavelService"]
             AlunoService["AlunoService"]
+            ResponsavelService["ResponsavelService"]
             InscricaoService["InscricaoService"]
+            ConsultaService["ConsultaPublicaService"]
+            HistoricoService["HistoricoVagaService"]
+            CriterioService["CriterioService"]
         end
 
         subgraph strategy["strategy"]
-            CriterioStrategy["CriterioPontuacaoStrategy"]
-            CriterioFactory["CriterioStrategyFactory"]
-            CriteriosImpl["CriterioRenda / Proximidade / Irmao / Pcd"]
+            CriterioStrategy["CriterioPontuacaoStrategy (Interface)"]
+            StrategyFactory["CriterioStrategyFactory"]
+            CriterioRenda["CriterioRendaStrategy"]
+            CriterioBooleano["CriterioBooleanoStrategy"]
+            CriterioSemRegra["CriterioSemRegraAutomaticaStrategy"]
         end
 
         subgraph tarefa["tarefa"]
-            TarefaRecalcularFila["TarefaRecalcularFila"]
-            TarefaCalcularEstatisticas["TarefaCalcularEstatisticas"]
-            TarefaNotificarChamada["TarefaNotificarChamada"]
+            TarefaRecalcular["TarefaRecalcularFila"]
+            TarefaEstatisticas["TarefaCalcularEstatisticas"]
+            TarefaNotificar["TarefaNotificarChamada"]
         end
 
         subgraph dao["dao"]
             Conexao["Conexao"]
             EscolaDAO["EscolaDAO"]
-            TurmaDAO["TurmaDAO"]
-            ResponsavelDAO["ResponsavelDAO"]
+            TurmaDao["TurmaDao"]
             AlunoDAO["AlunoDAO"]
+            ResponsavelDAO["ResponsavelDAO"]
+            AlunoRespDAO["AlunoResponsavelDAO"]
             InscricaoDAO["InscricaoDAO"]
+            InscricaoCritDAO["InscricaoCriterioDAO"]
+            ConsultaDAO["ConsultaPublicaDAO"]
+            HistoricoDAO["HistoricoVagaDAO"]
+            EstatisticasDAO["EstatisticasDAO"]
+            CriterioDAO["CriterioDAO"]
         end
 
         subgraph model["model"]
-            Pessoa["Pessoa"]
-            Responsavel["Responsavel"]
+            Pessoa["Pessoa (Abstrata)"]
             Aluno["Aluno"]
-            AlunoResponsavel["AlunoResponsavel"]
+            Responsavel["Responsavel"]
+            Endereco["Endereco"]
             Escola["Escola"]
             Turma["Turma"]
+            HistoricoVaga["HistoricoVaga"]
             Inscricao["Inscricao"]
-            StatusInscricao["StatusInscricao (Enum)"]
-            Turno["Turno (Enum)"]
+            Criterio["Criterio"]
+            Enums["Turno, StatusInscricao, Parentesco"]
+            DTOs["Requests e Responses (Painel, Login, Consulta)"]
         end
 
         subgraph exception["exception"]
             SiveException["SiveException"]
+            AutenticacaoException["AutenticacaoException"]
+            AcessoNegadoException["AcessoNegadoException"]
             VagaIndisponivelException["VagaIndisponivelException"]
             AlunoJaInscritoException["AlunoJaInscritoException"]
             InscricaoNaoEncontradaException["InscricaoNaoEncontradaException"]
@@ -71,19 +98,25 @@ flowchart TD
     end
 
     %% Relações e Dependências de Pacotes
+    controller --> security
     controller --> service
-    controller --> exception
     controller --> model
+    controller --> exception
 
+    service --> security
     service --> dao
     service --> strategy
     service --> tarefa
-    service --> exception
     service --> model
+    service --> exception
+
+    security --> exception
+    security --> model
 
     strategy --> model
     tarefa --> dao
     tarefa --> model
+    dao --> security
     dao --> model
 
     App --> controller
@@ -92,15 +125,15 @@ flowchart TD
 
 ---
 
-## Descrição das Camadas e Regras de Dependência
+## Matriz de Camadas e Dependências
 
-| Pacote | Responsabilidade | Depende de |
+| Pacote | Responsabilidade | Dependências Permitidas |
 | :--- | :--- | :--- |
-| `com.sive.controller` | Endpoints REST, mapeamento de requisições/respostas HTTP e tratamento global de exceções. | `service`, `model`, `exception` |
-| `com.sive.service` | Regras de negócio, cálculo de pontuação, transações, concorrência e validações. | `dao`, `strategy`, `tarefa`, `model`, `exception` |
-| `com.sive.strategy` | Implementações do padrão Strategy para cálculo de critérios socioeconômicos. | `model` |
-| `com.sive.tarefa` | Classes `Runnable` executadas em threads separadas para processamento assíncrono. | `dao`, `model` |
-| `com.sive.dao` | Acesso a dados via JDBC nativo (`java.sql`), mapeamento de ResultSet para POJOs. | `model` |
-| `com.sive.model` | Entidades POJO de domínio e enums. Pacote folha, sem dependências externas. | Nenhuma |
-| `com.sive.exception` | Hierarquia de exceções de domínio. Pacote compartilhado transversalmente. | Nenhuma |
-
+| `com.sive.controller` | Endpoints REST, mapeamento de payloads JSON, status HTTP e captura global de erros. | `service`, `security`, `model`, `exception` |
+| `com.sive.security` | Interceptação HTTP (`HandlerInterceptor`), validação de tokens JWT/Bearer, hashing e criptografia AES de dados pessoais (LGPD). | `model`, `exception` |
+| `com.sive.service` | Orquestração das regras de negócio, controle transacional, alocação de vagas e cálculo de pontuação. | `dao`, `strategy`, `tarefa`, `security`, `model`, `exception` |
+| `com.sive.strategy` | Implementações do padrão comportamental Strategy para cálculo dinâmico de pontuação de critérios. | `model` |
+| `com.sive.tarefa` | Classes `Runnable` executadas em threads dedicadas assíncronas. | `dao`, `model` |
+| `com.sive.dao` | Acesso nativo a dados via `java.sql` (JDBC), montagem de PreparedStatement e conversão de ResultSet. | `security` (para hashing/cifra), `model` |
+| `com.sive.model` | Entidades de domínio, objetos de valor (Value Objects), DTOs de requisição/resposta e Enums. | Nenhuma (pacote folha) |
+| `com.sive.exception` | Hierarquia de exceções customizadas de regras de negócio e segurança. | Nenhuma |
