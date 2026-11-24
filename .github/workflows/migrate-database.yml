@@ -32,13 +32,13 @@ jobs:
         if: ${{ inputs.action == 'run_migrations' }}
         run: |
           echo "Executando migração 0001 (Auth Escolas)..."
-          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/migrations/0001_add_escola_auth.sql
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < database/migrations/0001_add_escola_auth.sql
 
           echo "Executando migração 0002 (Evolução de Alunos/Responsaveis/Turmas)..."
-          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/migrations/0002_evolucao_schema_escola.sql
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < database/migrations/0002_evolucao_schema_escola.sql
 
           echo "Executando migração 0003 (Código de Critérios)..."
-          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/migrations/0003_add_codigo_criterios.sql
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < database/migrations/0003_add_codigo_criterios.sql
 
           echo "Migrações concluídas com sucesso!"
         env:
@@ -48,7 +48,7 @@ jobs:
         if: ${{ inputs.action == 'seed_staging' }}
         run: |
           echo "Inserindo seeds de staging..."
-          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/seeds/staging.sql
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < database/seeds/staging.sql
           echo "Seeds inseridos com sucesso!"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -57,7 +57,7 @@ jobs:
         if: ${{ inputs.action == 'schema_completo' }}
         run: |
           echo "Executando schema.sql completo..."
-          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/schema.sql
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < database/schema.sql
           echo "Schema completo aplicado!"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
