@@ -6,9 +6,6 @@ import com.sive.model.Inscricao;
 import java.util.Objects;
 import java.util.function.Predicate;
 
-/**
- * Estratégia genérica para critérios booleanos (SIM_NAO) avaliados sobre atributos do aluno.
- */
 public class CriterioBooleanoStrategy implements CriterioPontuacaoStrategy {
 
     private final String nomeCriterio;
