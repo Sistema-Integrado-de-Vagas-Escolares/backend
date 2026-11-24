@@ -1,0 +1,63 @@
+name: Database Migration (Fly.io)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Qual ação de banco executar?'
+        required: true
+        default: 'run_migrations'
+        type: choice
+        options:
+          - 'run_migrations'
+          - 'seed_staging'
+          - 'schema_completo'
+      postgres_app:
+        description: 'Nome da aplicação do Postgres no Fly.io'
+        required: true
+        default: 'sive-postgres'
+
+jobs:
+  migrate:
+    name: Executar Migrações no Banco do Fly.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: Instalar flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Executar Migrações Incrementais (0001, 0002, 0003)
+        if: ${{ inputs.action == 'run_migrations' }}
+        run: |
+          echo "Executando migração 0001 (Auth Escolas)..."
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/migrations/0001_add_escola_auth.sql
+
+          echo "Executando migração 0002 (Evolução de Alunos/Responsaveis/Turmas)..."
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/migrations/0002_evolucao_schema_escola.sql
+
+          echo "Executando migração 0003 (Código de Critérios)..."
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/migrations/0003_add_codigo_criterios.sql
+
+          echo "Migrações concluídas com sucesso!"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Executar Seeds de Staging
+        if: ${{ inputs.action == 'seed_staging' }}
+        run: |
+          echo "Inserindo seeds de staging..."
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/seeds/staging.sql
+          echo "Seeds inseridos com sucesso!"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Executar Schema Completo
+        if: ${{ inputs.action == 'schema_completo' }}
+        run: |
+          echo "Executando schema.sql completo..."
+          flyctl postgres connect -a ${{ inputs.postgres_app }} < backend/database/schema.sql
+          echo "Schema completo aplicado!"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
