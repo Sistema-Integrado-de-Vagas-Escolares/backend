@@ -407,9 +407,9 @@ Abaixo está o plano de trabalho dividido de forma independente entre os desenvo
 
 #### 4.2 Motor de Pontuação Strategy (`strategy`)
 - [x] Interface `CriterioPontuacaoStrategy.java` (`double calcularPontos(Inscricao inscricao)` e `String getNomeCriterio()`)
-- [ ] Implementação `CriterioRendaStrategy.java` (pontuação por faixa de renda per capita — pendente de definição)
+- [x] Implementação `CriterioRendaStrategy.java` (pontuação por faixa de renda per capita — pendente de definição)
 - [ ] Implementação `CriterioProximidadeStrategy.java` (pontuação por distância residencial — pendente de definição)
-- [ ] Implementação `CriterioIrmaoStrategy.java` (bônus por irmão na mesma escola — pendente de definição)
+- [x] Implementação `CriterioIrmaoStrategy.java` (bônus por irmão na mesma escola — pendente de definição)
 - [x] Implementação `CriterioPcdStrategy.java` (prioridade para candidatos com deficiência — criada com 30.0 pontos temporários)
 - [x] Fábrica de estratégias `CriterioStrategyFactory.java` (criada com Switch Expressions para os 4 códigos, com PCD ativo)
 
