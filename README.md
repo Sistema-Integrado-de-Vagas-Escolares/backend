@@ -2,49 +2,47 @@
 
 O **SIVE** é uma aplicação voltada para a gestão transparente, organizada e automatizada de solicitações de vagas e filas de espera na educação infantil e ensino fundamental.
 
-O sistema permite cadastrar escolas e turmas, receber inscrições de dependentes vinculados a responsáveis legais, pontuar as solicitações com base em critérios socioeconômicos e geográficos configuráveis, e gerenciar a convocação e matrícula dos alunos de forma concorrente e consistente.
+O backend expõe uma API REST em **Java 17 LTS + Spring Boot Web** com persistência direta via **JDBC nativo (`java.sql.*`)** em **PostgreSQL 16**, aplicando o padrão **GOF Strategy** para o motor de pontuação, criptografia **AES-256-GCM + HMAC-SHA256** para proteção de CPFs (LGPD) e controle de concorrência com `synchronized` e transações manuais.
 
 ---
 
 ## 1. Tecnologias Utilizadas
 
-- **Linguagem:** Java 17+
-- **Framework Web:** Spring Boot (Spring Web para rotas e controladores REST)
+- **Linguagem:** Java 17 LTS
+- **Framework Web:** Spring Boot 3.3+ (`spring-boot-starter-web`, `@RestController`, `@RestControllerAdvice`)
 - **Banco de Dados:** PostgreSQL 16
-- **Acesso a Dados:** JDBC Nativo (`java.sql`) com transações manuais
+- **Acesso a Dados:** JDBC Nativo (`java.sql.*` — `Connection`, `PreparedStatement`, `ResultSet` em `try-with-resources`)
+- **Segurança & LGPD:** `TokenService` (token assinado com HMAC-SHA256), `PasswordHasher` (PBKDF2), `CpfCryptoService` (AES-256-GCM + hash determinístico HMAC-SHA256)
+- **Testes:** JUnit 5 (`spring-boot-starter-test`)
 - **Containerização:** Docker e Docker Compose
 
 ---
 
-## 2. Arquitetura e Conceitos Centrais
-
-A aplicação adota uma arquitetura em camadas orientada a objetos:
+## 2. Arquitetura e Padrões de Projeto
 
 ```text
-HTTP Request ──► Controller (REST) ──► Service (Regras de Negócio) ──► DAO (JDBC) ──► PostgreSQL
-                                            │
-                             ┌──────────────┴──────────────┐
-                             ▼                             ▼
-                  Strategy (Pontuação)          Tarefa (Threads Concorrentes)
+HTTP Request ──► EscolaAuthInterceptor ──► Controller (REST) ──► Service (Negócio) ──► DAO (JDBC) ──► PostgreSQL
+                                                                       │
+                                                        ┌──────────────┴──────────────┐
+                                                        ▼                             ▼
+                                             Strategy (Pontuação)          Tarefa (Threads Concorrentes)
 ```
 
-### Padrão Strategy (Motor de Pontuação)
-A pontuação de cada inscrição na fila varia de acordo com critérios sociais e geográficos. O sistema utiliza o padrão **Strategy** para desacoplar as regras de cálculo:
-- `CriterioPontuacaoStrategy` (Interface base): define o contrato `double calcularPontos(Inscricao inscricao)`.
+### Padrão Strategy + Factory (`com.sive.strategy`)
+Toda lógica de pontuação dos alunos na lista de espera é desacoplada por meio do padrão **GOF Strategy**:
+- `CriterioPontuacaoStrategy` (interface): define `double calcularPontos(Aluno aluno, Criterio criterio)` e `String getNomeCriterio()`.
 - Implementações concretas:
-  - `CriterioRendaStrategy`: pontua inscrições com base na renda familiar per capita.
-  - `CriterioProximidadeStrategy`: pontua a proximidade residencial do aluno em relação à escola.
-  - `CriterioIrmaoStrategy`: concede pontuação adicional para alunos com irmãos matriculados na mesma escola.
-  - `CriterioPcdStrategy`: aplica prioridade legal para candidatos com deficiência/necessidades especiais.
-- `CriterioStrategyFactory`: fabrica e entrega a estratégia adequada para cada critério avaliado.
+  - `CriterioRendaStrategy`: calcula pontuação escalonada pela renda familiar per capita.
+  - `CriterioBooleanoStrategy`: estratégia reutilizável via `Predicate<Aluno>` para critérios binários (`PCD`, `IRMAO`, `VULNERABILIDADE`, `BPC_LOAS`, `BOLSA_FAMILIA`, `RESPONSAVEL_SOLO`, `MORA_ALUGUEL`).
+  - `CriterioSemRegraAutomaticaStrategy`: fallback seguro para critérios sem regra automática.
+- `CriterioStrategyFactory`: fabrica a estratégia adequada via *Switch Expression* (`obterEstrategia(String codigoCriterio)`).
 
-### Threads e Concorrência
-O sistema opera em ambiente concorrente e aborda duas frentes:
-1. **Processamento Concorrente de Filas (`tarefa`):** Operações demoradas, como recálculo de pontuação em lote ou geração de métricas de demanda, são executadas por tarefas independentes que implementam `Runnable` e rodam em `Thread` separadas, permitindo sincronização com `start()` e `join()`.
-2. **Proteção contra Condições de Corrida (*Race Conditions*):** Métodos críticos de reserva e alocação de vagas utilizam bloqueios sincronizados (`synchronized`) e controle transacional no banco para garantir que duas requisições simultâneas não preencham a mesma vaga além da capacidade da turma.
+### Threads e Concorrência (`com.sive.tarefa` e `TurmaService`)
+1. **Tarefas Assíncronas (`Runnable`):** `TarefaRecalcularFila`, `TarefaCalcularEstatisticas` e `TarefaNotificarChamada` executam processamentos em threads dedicadas.
+2. **Proteção contra *Race Conditions*:** A alocação e decremento de vagas em `TurmaService` utiliza bloqueio `synchronized` combinado com transações JDBC (`conn.setAutoCommit(false)`, `commit()`, `rollback()`).
 
-### Tratamento Centralizado de Exceções
-Regras de negócio violadas lançam exceções customizadas do pacote `exception` (ex.: `VagaIndisponivelException`, `AlunoJaInscritoException`, `InscricaoNaoEncontradaException`). O controlador `GlobalExceptionHandler` intercepta esses erros e retorna mensagens padronizadas em JSON com os devidos códigos de status HTTP (400, 404, 409).
+### Tratamento Centralizado de Exceções (`GlobalExceptionHandler`)
+Exceções de domínio (`VagaIndisponivelException`, `AlunoJaInscritoException`, `InscricaoNaoEncontradaException`, `StatusInvalidoException`, `AutenticacaoException`) e `IllegalArgumentException` são interceptadas e convertidas em respostas JSON padronizadas (`400`, `401`, `404`, `409`).
 
 ---
 
@@ -52,384 +50,162 @@ Regras de negócio violadas lançam exceções customizadas do pacote `exception
 
 ```text
 backend/
-├── Dockerfile                      # Build multi-stage para containerização e deploy
-├── docker-compose.yml              # Orquestração do PostgreSQL e Backend
-├── fly.toml                        # Configuração de deploy em nuvem (Fly.io)
-├── .dockerignore                   # Otimização de build do Docker
-├── pom.xml                         # Dependências do projeto Maven
-├── README.md                       # Documentação técnica do projeto
-├── client.http                     # Script de testes manuais via extensão REST Client
+├── Dockerfile                      # Build multi-stage para deploy
+├── docker-compose.yml              # Orquestração PostgreSQL 16 + Backend
+├── fly.toml                        # Configuração de deploy (Fly.io)
+├── pom.xml                         # Dependências Maven (Java 17)
+├── client.http                     # Coleção pronta de testes HTTP (VS Code REST Client)
+├── diagramas/                      # Diagramas UML em Mermaid
 ├── database/
-│   ├── schema.sql                  # Script DDL com a estrutura das 8 tabelas
-│   ├── migrations/                 # Scripts de migração incremental do banco
-│   └── seeds/                      # Scripts de dados iniciais (critérios e usuário/escola)
+│   ├── schema.sql                  # DDL completo
+│   ├── migrations/                 # Migrações incrementais (0000 a 0003)
+│   └── seeds/                      # Seeds (local.sql com escola EMEI-0001 e dados de teste)
 └── src/main/java/com/sive/
-    ├── SiveApplication.java        # Inicializador da aplicação Spring Boot
-    │
-    ├── controller/                 # Controladores REST da API
-    │   ├── EscolaController.java
-    │   ├── TurmaController.java
-    │   ├── ResponsavelController.java
-    │   ├── InscricaoController.java
-    │   └── GlobalExceptionHandler.java
-    │
-    ├── service/                    # Regras de negócio e coordenação de fluxo
-    │   ├── EscolaService.java
-    │   ├── TurmaService.java
-    │   ├── InscricaoService.java
-    │   └── FilaService.java
-    │
-    ├── strategy/                   # Implementações do padrão Strategy
-    │   ├── CriterioPontuacaoStrategy.java
-    │   ├── CriterioRendaStrategy.java
-    │   ├── CriterioProximidadeStrategy.java
-    │   ├── CriterioIrmaoStrategy.java
-    │   ├── CriterioPcdStrategy.java
-    │   └── CriterioStrategyFactory.java
-    │
-    ├── tarefa/                     # Tarefas concorrentes (Threads / Runnable)
-    │   ├── TarefaRecalcularFila.java
-    │   ├── TarefaCalcularEstatisticas.java
-    │   └── TarefaNotificarChamada.java
-    │
-    ├── dao/                        # Acesso a dados via JDBC nativo
-    │   ├── Conexao.java
-    │   ├── EscolaDAO.java
-    │   ├── TurmaDao.java
-    │   ├── EstatisticasDAO.java
-    │   ├── ResponsavelDAO.java
-    │   ├── AlunoDAO.java
-    │   └── InscricaoDAO.java
-    │
-    ├── model/                      # Classes de domínio e DTOs
-    │   ├── Pessoa.java             # Superclasse abstrata com atributos comuns
-    │   ├── Responsavel.java        # Dados cadastrais do responsável legal
-    │   ├── Aluno.java              # Dados da criança/estudante
-    │   ├── Escola.java             # Unidade escolar
-    │   ├── Turma.java              # Turma, turno e saldo de vagas
-    │   ├── Turno.java              # Enum: MANHA, TARDE, INTEGRAL
-    │   ├── EstatisticasRede.java   # DTO agregador de estatísticas da rede
-    │   ├── Inscricao.java          # Inscrição na fila de espera
-    │   └── StatusInscricao.java    # Enum: EM_ESPERA, CHAMADO, MATRICULADO, etc.
-    │
-    └── exception/                  # Exceções de negócio e domínio
-        ├── SiveException.java
-        ├── VagaIndisponivelException.java
-        ├── AlunoJaInscritoException.java
-        ├── InscricaoNaoEncontradaException.java
-        └── StatusInvalidoException.java
+    ├── SiveApplication.java
+    ├── controller/                 # Controladores REST (Auth, EscolaPainel, ConsultaPublica, Health, etc.)
+    ├── service/                    # Regras de negócio e transações
+    ├── strategy/                   # Padrão Strategy + Factory (pontuação)
+    ├── security/                   # CpfCryptoService, TokenService, PasswordHasher, EscolaAuthInterceptor
+    ├── dao/                        # DAOs JDBC puro
+    ├── tarefa/                     # Tarefas concorrentes (Runnable)
+    ├── model/                      # POJOs e DTOs
+    └── exception/                  # Exceções de domínio
 ```
 
 ---
 
-## 4. Modelagem do Banco de Dados
+## 4. Rotas da API (Endpoints REST)
 
-O banco relacional é composto por 8 tabelas normalizadas com suporte completo a múltiplos responsáveis por aluno (N:N):
+Todas as rotas utilizam `application/json`. As rotas sob `/api/escola/**` exigem o cabeçalho `Authorization: Bearer <token>` obtido em `POST /api/auth/login`.
 
-```mermaid
-erDiagram
-    ESCOLAS ||--o{ TURMAS : "oferta"
-    ALUNOS ||--o{ ALUNO_RESPONSAVEIS : "possui"
-    RESPONSAVEIS ||--o{ ALUNO_RESPONSAVEIS : "vincula-se"
-    ALUNOS ||--o{ INSCRICOES : "candidata-se"
-    TURMAS ||--o{ INSCRICOES : "recebe"
-    INSCRICOES ||--o{ INSCRICAO_CRITERIOS : "detalha"
-    CRITERIOS ||--o{ INSCRICAO_CRITERIOS : "pontua"
-
-    ESCOLAS {
-        uuid id PK
-        varchar nome
-        varchar bairro
-        varchar cidade
-        integer capacidade_total
-    }
-
-    TURMAS {
-        uuid id PK
-        uuid escola_id FK
-        varchar serie_ano
-        varchar turno
-        integer vagas_totais
-        integer vagas_disponiveis
-    }
-
-    RESPONSAVEIS {
-        uuid id PK
-        varchar nome
-        varchar cpf UK
-        varchar telefone
-        numeric renda_familiar
-    }
-
-    ALUNOS {
-        uuid id PK
-        varchar nome
-        date data_nascimento
-        varchar certidao_nascimento
-        boolean tem_necessidade_especial
-    }
-
-    ALUNO_RESPONSAVEIS {
-        uuid id PK
-        uuid aluno_id FK
-        uuid responsavel_id FK
-        varchar parentesco "MAE | PAI | AVOS | TUTOR_LEGAL | OUTRO"
-        boolean is_contato_principal
-    }
-
-    INSCRICOES {
-        uuid id PK
-        uuid aluno_id FK
-        uuid turma_id FK
-        varchar protocolo UK
-        timestamp data_inscricao
-        numeric pontuacao_total
-        integer posicao_fila
-        varchar status
-        timestamp data_chamada
-    }
-
-    CRITERIOS {
-        uuid id PK
-        varchar nome
-        numeric pontos_base
-        varchar categoria
-    }
-
-    INSCRICAO_CRITERIOS {
-        uuid id PK
-        uuid inscricao_id FK
-        uuid criterio_id FK
-        numeric pontos_obtidos
-    }
-```
-
-### Descrição das Entidades:
-- **`escolas`**: Representa as unidades escolares com capacidade total de alunos.
-- **`turmas`**: Agrupamento por série/ano e turno, controlando a quantidade de vagas totais e disponíveis.
-- **`responsaveis`**: Dados cadastrais e renda familiar per capita dos responsáveis legais.
-- **`alunos`**: Crianças dependentes com certidão de nascimento e registro de necessidades especiais.
-- **`aluno_responsaveis`**: Associação N:N entre alunos e seus múltiplos responsáveis legais, registrando parentesco (Mãe, Pai, Tutor) e contato prioritário.
-- **`criterios`**: Tabela de regras de pontuação ativas (faixa de renda, proximidade, irmãos).
-- **`inscricoes`**: Representa a posição do candidato na fila de uma turma, seu protocolo único, status e pontuação.
-- **`inscricao_criterios`**: Associação que registra os critérios atendidos e os pontos obtidos em cada inscrição.
-
----
-
-## 5. Rotas da API (Endpoints REST)
-
-Todas as rotas retornam e recebem cargas úteis no formato `application/json`.
-
+### 4.1 Autenticação e Saúde (Públicas)
 | Método | Rota | Descrição |
 | :--- | :--- | :--- |
-| `GET` | `/api/escolas` | Lista todas as escolas cadastradas |
+| `GET` | `/api/health` (ou `/health`, `/health-check`) | Verifica se a API e o banco estão operacionais |
+| `POST` | `/api/auth/login` | Autentica a escola (`codigo` + `senha`) e retorna o token Bearer |
+
+### 4.2 Consulta Pública — Acompanhar Matrícula (Públicas)
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `POST` | `/api/publico/consulta` | Consulta solicitações do responsável por `cpf` + `protocolo` |
+| `GET` | `/api/publico/consulta/protocolo/{protocolo}` | Consulta direta de uma inscrição específica pelo `protocolo` (link/QR Code) |
+
+### 4.3 Painel da Escola (Autenticadas — `Bearer Token`)
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
+| `GET` | `/api/escola/perfil` | Retorna dados cadastrais da escola autenticada |
+| `GET` | `/api/escola/resumo` | Métricas do dashboard (fila, vagas, turmas, matrículas) |
+| `GET` | `/api/escola/turmas` | Lista turmas da escola |
+| `POST` | `/api/escola/turmas` | Cria nova turma |
+| `GET` | `/api/escola/turmas/{turmaId}` | Detalhes de uma turma |
+| `PUT` | `/api/escola/turmas/{turmaId}` | Atualiza uma turma |
+| `DELETE` | `/api/escola/turmas/{turmaId}` | Remove uma turma (se não possuir vínculos) |
+| `POST` | `/api/escola/turmas/{turmaId}/recalcular` | Dispara recálculo concorrente da fila via Thread |
+| `GET` | `/api/escola/responsaveis` | Lista responsáveis (`?busca=` e `?comFilhos=`) com CPF mascarado |
+| `GET` | `/api/escola/responsaveis/{responsavelId}` | Detalhes do responsável e filhos (`?incluirCpfCompleto=true` opcional) |
+| `POST` | `/api/escola/responsaveis` | Cadastra novo responsável (criptografando CPF) |
+| `PUT` | `/api/escola/responsaveis/{responsavelId}` | Atualiza dados do responsável |
+| `GET` | `/api/escola/alunos` | Lista alunos da escola (`?busca=` e `?serieAno=`) com CPF mascarado |
+| `GET` | `/api/escola/alunos/{alunoId}` | Detalhes do aluno, critérios e responsáveis (`?incluirCpfCompleto=true` opcional) |
+| `POST` | `/api/escola/alunos` | Cadastra aluno + vínculos + inscrição na fila (retorna `protocolo`) |
+| `PUT` | `/api/escola/alunos/{alunoId}` | Atualiza dados do aluno, critérios, inscrição e responsáveis |
+| `GET` | `/api/escola/inscricoes` | Lista inscrições por status (`?status=`, `?busca=`, `?serieAno=`) ordenadas por pontuação |
+| `POST` | `/api/escola/inscricoes/{inscricaoId}/chamar` | Convoca aluno da fila (`EM_ESPERA` → `CHAMADO`) |
+| `PATCH` | `/api/escola/inscricoes/{inscricaoId}/chamado` | Gerencia chamado (`ACEITAR`, `RECUSAR`, `DESISTIR`, `REPASSAR`, `DESFAZER`) |
+| `GET` | `/api/escola/criterios` | Lista critérios de pontuação cadastrados |
+| `PUT` | `/api/escola/criterios` | Atualiza pesos/status dos critérios (soma dos ativos = 100) |
+| `GET` | `/api/escola/vagas/historico` | Lista histórico de movimentações de vagas |
+| `PATCH` | `/api/escola/vagas` | Ajusta manualmente vagas disponíveis de uma turma e registra histórico |
+
+### 4.4 Rotas Base / Administrativas
+| Método | Rota | Descrição |
+| :--- | :--- | :--- |
 | `POST` | `/api/escolas` | Cadastra uma nova escola |
-| `GET` | `/api/escolas/{id}` | Consulta detalhes de uma escola específica por ID |
-| `GET` | `/api/escolas/{id}/turmas` | Lista as turmas e o saldo de vagas de uma escola |
-| `POST` | `/api/turmas` | Cadastra uma nova turma validando capacidade da escola |
-| `GET` | `/api/turmas/{id}` | Consulta detalhes e saldo atual de vagas de uma turma |
-| `POST` | `/api/turmas/{turmaId}/recalcular` | Dispara o recálculo concorrente da fila via Threads |
-| `POST` | `/api/responsaveis` | Cadastra um responsável legal |
-| `POST` | `/api/alunos` | Cadastra um aluno vinculado a um responsável |
-| `POST` | `/api/inscricoes` | Cria uma solicitação de vaga para o aluno em uma turma |
-| `GET` | `/api/inscricoes/protocolo/{protocolo}` | Consulta pública de status e posição na fila por protocolo |
-| `GET` | `/api/turmas/{turmaId}/fila` | Retorna a fila de espera da turma ordenada por pontuação |
-| `POST` | `/api/inscricoes/{id}/convocar` | Convoca o candidato para apresentação de documentos |
-| `POST` | `/api/inscricoes/{id}/matricular` | Efetiva a matrícula e decrementa vaga de forma atômica |
-| `POST` | `/api/inscricoes/{id}/cancelar` | Cancela ou formaliza a desistência da inscrição |
+| `POST` | `/api/turmas` / `GET` `/api/turmas/{id}` | Cadastro e consulta direta de turma |
+| `GET` | `/api/escolas/{escolaId}/turmas` | Lista turmas por ID da escola |
+| `POST` | `/api/responsaveis` / `GET` `/api/responsaveis` / `GET` `/api/responsaveis/{id}` | CRUD base de responsáveis |
+| `POST` | `/api/alunos` / `GET` `/api/alunos` / `GET` `/api/alunos/{id}` | CRUD base de alunos |
+| `GET` | `/api/alunos/{id}/responsaveis` | Lista responsáveis vinculados a um aluno |
 
 ---
 
-## 6. Como Executar e Testar Localmente
+## 5. Como Executar e Testar Localmente
 
 ### Pré-requisitos
-- [Docker](https://www.docker.com/) e Docker Compose instalados.
-- [Java JDK 17+](https://adoptium.net/) instalado.
+- [Docker](https://www.docker.com/) e Docker Compose
+- [Java JDK 17](https://adoptium.net/)
 
----
-
-### Opção A: Executar com Docker Compose Completo (Recomendado)
-Sobe tanto o banco PostgreSQL quanto o backend em containers integrados:
-
+### Subir o Banco e o Backend
 ```bash
-cd backend
-docker compose up --build -d
-```
-A API estará pronta e respondendo em: `http://localhost:8080`
-
-Para parar os serviços:
-```bash
-docker compose down
-```
-
----
-
-### Opção B: Executar Manualmente (Backend na Máquina Host)
-
-#### 1. Iniciar apenas o Banco de Dados (PostgreSQL)
-Na pasta `backend/`, inicie o container do banco:
-```bash
+# 1. Subir apenas o PostgreSQL (com schema e seeds automáticos)
 cd backend
 docker compose up sive-db -d
+
+# 2. Executar a aplicação Spring Boot
+./mvnw spring-boot:run   # Linux/macOS
+# ou: .\mvnw.cmd spring-boot:run  (Windows)
 ```
-O banco criará a base `sive_db` na porta padrão `5432` e executará automaticamente o script DDL `database/schema.sql` e os seeds em `database/seeds/`.
+> Para subir tudo em containers (`sive-db` + `sive-backend`): `cd backend && docker compose up --build -d`
 
-#### 2. Testar Conexão com o Banco (Opcional)
-Você pode rodar o método utilitário de teste em `Conexao.java`:
-- **Windows (PowerShell):**
-  ```powershell
-  .\mvnw.cmd test-compile
-  java -cp "target/classes;target/dependency/*" com.sive.dao.Conexao
-  ```
-
-#### 3. Executar a Aplicação Spring Boot
-- **Windows:**
-  ```powershell
-  .\mvnw.cmd spring-boot:run
-  ```
-- **Linux/macOS:**
-  ```bash
-  ./mvnw spring-boot:run
-  ```
-
-A API estará disponível em: `http://localhost:8080`
+### Credenciais padrão (Seed Local)
+- **Código da escola:** `EMEI-0001`
+- **Senha:** `sive123`
+- **Protocolo de exemplo (seed):** `SIVE-SIM0001` (Responsável: Carla Ferreira, CPF `333.444.555-66`)
 
 ---
 
-### 🧪 Instruções de Teste das Rotas da API
+## 6. Instruções de Teste das Rotas (REST Client e cURL)
 
-#### 1. Usando a extensão REST Client no VS Code (Recomendado)
-Para testar interativamente dentro do editor:
-1. Instale a extensão oficial **[REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)** (`humao.rest-client`) no VS Code.
-2. Abra o arquivo de testes [`client.http`](./client.http) na raiz da pasta `backend/`.
-3. Clique no botão **"Send Request"** que aparece diretamente acima de cada requisição HTTP para executá-la e visualizar a resposta JSON ao lado.
+### Opção 1: Testando com `client.http` no VS Code (Recomendado)
+1. Instale a extensão **[REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)** (`humao.rest-client`).
+2. Abra o arquivo [`backend/client.http`](./client.http).
+3. Execute primeiro a requisição **Login da Escola (`POST /api/auth/login`)** clicando em **Send Request**.
+4. Copie o campo `"token"` retornado e cole na variável `@token = ...` no topo do arquivo `client.http`.
+5. Clique em **Send Request** em qualquer rota abaixo (resumo, turmas, critérios, alunos, chamados, consulta pública, etc.).
 
-#### 2. Testando via cURL / Terminal
+### Opção 2: Testando direto pelo Terminal (`curl`)
 
-##### Passo 1: Cadastrar uma Escola
+#### 1) Health Check
 ```bash
-curl -X POST http://localhost:8080/api/escolas \
+curl -s http://localhost:8080/api/health
+```
+
+#### 2) Login da Escola (obter Token Bearer)
+```bash
+curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "nome": "EMEF Cecília Meireles",
-    "bairro": "Centro",
-    "cidade": "São Paulo",
-    "capacidadeTotal": 450
-  }'
+  -d '{"codigo":"EMEI-0001","senha":"sive123"}'
 ```
-> Guarde o campo `"id"` retornado no JSON para o próximo passo.
-
-##### Passo 2: Listar Escolas
+Copie o valor de `"token"` retornado e exporte no terminal:
 ```bash
-curl -X GET http://localhost:8080/api/escolas
+export TOKEN="COLE_O_TOKEN_AQUI"
 ```
 
-##### Passo 3: Cadastrar uma Turma (Substitua `<escolaId>` pelo ID retornado)
+#### 3) Consultar Resumo do Painel e Critérios (Strategy)
 ```bash
-curl -X POST http://localhost:8080/api/turmas \
+curl -s http://localhost:8080/api/escola/resumo -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8080/api/escola/criterios -H "Authorization: Bearer $TOKEN"
+```
+
+#### 4) Listar Inscrições em Espera e Chamar Próximo da Fila
+```bash
+curl -s "http://localhost:8080/api/escola/inscricoes?status=EM_ESPERA" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+#### 5) Testar Consulta Pública ("Acompanhar Matrícula")
+```bash
+# Por CPF + Protocolo
+curl -s -X POST http://localhost:8080/api/publico/consulta \
   -H "Content-Type: application/json" \
-  -d '{
-    "escolaId": "<escolaId>",
-    "serieAno": "1º Ano Fundamental",
-    "turno": "MANHA",
-    "vagasTotais": 30
-  }'
+  -d '{"cpf":"333.444.555-66","protocolo":"SIVE-SIM0001"}'
+
+# Direto pelo Protocolo (Link / QR Code)
+curl -s http://localhost:8080/api/publico/consulta/protocolo/SIVE-SIM0001
 ```
 
-##### Passo 4: Listar Turmas da Escola
+### Executar Testes Automatizados (JUnit 5)
 ```bash
-curl -X GET http://localhost:8080/api/escolas/<escolaId>/turmas
+cd backend && ./mvnw test
 ```
-
-##### Passo 5: Buscar Turma por ID
-```bash
-curl -X GET http://localhost:8080/api/turmas/<turmaId>
-```
-
----
-
-## 7. Checklist de Implementação (Divisão de Tarefas)
-
-Abaixo está o plano de trabalho dividido de forma independente entre os desenvolvedores para evitar bloqueios e conflitos de código.
-
-### 1. Infraestrutura e Banco de Dados (Concluído)
-- [x] Container Docker com PostgreSQL 16 (`docker-compose.yml`)
-- [x] Script DDL relacional com 8 tabelas normalizadas (`database/schema.sql`)
-- [x] Suporte ao relacionamento N:N entre Alunos e Responsáveis (`aluno_responsaveis`)
-- [x] Seeds com critérios iniciais de pontuação
-- [x] Gerenciador de conexão JDBC nativa (`com.sive.dao.Conexao`)
-- [x] Configuração limpa do Maven (Java 17, Spring Web, Driver PostgreSQL)
-- [x] Regras de desenvolvimento e governança do agente (`SKILL.md` e `GEMINI.md`)
-
----
-
-### 2. Módulo de Escolas (Concluído)
-- [x] Modelo `Escola.java`
-- [x] DAO JDBC `EscolaDAO.java` (`inserir`, `listar`, `buscarPorId`)
-- [x] Serviço com regras e validações `EscolaService.java`
-- [x] Controlador REST `EscolaController.java` (`POST /api/escolas`, `GET /api/escolas`, `GET /api/escolas/{id}`)
-
----
-
-### 3. Contratos Base & Exceções Compartilhadas (Concluído)
-- [x] Hierarquia base de exceções (`SiveException`, `VagaIndisponivelException`, `AlunoJaInscritoException`, `InscricaoNaoEncontradaException`, `StatusInvalidoException`)
-- [x] Tratamento centralizado de erros REST com `@RestControllerAdvice` (`GlobalExceptionHandler.java`)
-
----
-
-### 👤 Trilha A — Giselle: Gestão de Capacidade, Turmas e Concorrência (Concluído)
-
-#### 3.1 Módulo de Turmas (`turmas`)
-- [x] Enum `Turno.java` (`MANHA`, `TARDE`, `INTEGRAL`)
-- [x] Modelo `Turma.java`
-- [x] DAO JDBC `TurmaDao.java` (`inserir`, `listarPorEscola`, `buscarPorId`, `atualizarSaldoVagas`)
-- [x] Serviço `TurmaService.java` (controle de capacidade da escola, reserva atômica de vagas com `synchronized` contra *race conditions*)
-- [x] Controlador REST `TurmaController.java` (`POST /api/turmas`, `GET /api/escolas/{escolaId}/turmas`, `GET /api/turmas/{id}`)
-
-#### 3.2 Concorrência e Tarefas em Background (`tarefa`)
-- [x] Modelo DTO `EstatisticasRede.java` e DAO `EstatisticasDAO.java`
-- [x] Tarefa concorrente `TarefaCalcularEstatisticas.java` (`Runnable`, agregando dados da rede)
-- [x] Tarefa concorrente `TarefaNotificarChamada.java` (`Runnable`, simulando envio de avisos com dados do contato principal)
-- [x] Tarefa concorrente `TarefaRecalcularFila.java` (`Runnable`, reclassificação em lote por pontuação e data)
-- [x] Disparo assíncrono e endpoint REST de recálculo da turma `POST /api/turmas/{turmaId}/recalcular`
-
----
-
-### 👤 Trilha B — Maria: Domínio Cidadão e Motor de Pontuação (Pendente)
-
-#### 4.1 Módulo de Responsáveis e Alunos (`responsaveis`, `alunos`, `aluno_responsaveis`)
-- [x] Superclasse abstrata `Pessoa.java` (herança e atributos comuns como nome, id)
-- [x] Modelo `Responsavel.java` (subclasse de `Pessoa`, com renda familiar e telefone)
-- [x] Modelo `Aluno.java` (subclasse de `Pessoa`, com certidão e necessidades especiais)
-- [x] Modelo `AlunoResponsavel.java` (associação com parentesco e contato principal)
-- [x] DAOs JDBC `ResponsavelDAO.java`, `AlunoDAO.java` e `AlunoResponsavelDAO.java`
-- [x] Serviços `ResponsavelService.java` e `AlunoService.java`
-- [x] Controladores REST `ResponsavelController.java` e `AlunoController.java`
-
-#### 4.2 Motor de Pontuação Strategy (`strategy`)
-- [x] Interface `CriterioPontuacaoStrategy.java` (`double calcularPontos(Inscricao inscricao)` e `String getNomeCriterio()`)
-- [ ] Implementação `CriterioRendaStrategy.java` (pontuação por faixa de renda per capita — pendente de definição)
-- [ ] Implementação `CriterioProximidadeStrategy.java` (pontuação por distância residencial — pendente de definição)
-- [ ] Implementação `CriterioIrmaoStrategy.java` (bônus por irmão na mesma escola — pendente de definição)
-- [x] Implementação `CriterioPcdStrategy.java` (prioridade para candidatos com deficiência — criada com 30.0 pontos temporários)
-- [x] Fábrica de estratégias `CriterioStrategyFactory.java` (criada com Switch Expressions para os 4 códigos, com PCD ativo)
-
-> **Registro de Implementação e Pendências Técnicas:**
-> 1. A interface `CriterioPontuacaoStrategy` foi criada com os métodos `calcularPontos(Inscricao inscricao)` e `getNomeCriterio()`.
-> 2. A `CriterioPcdStrategy` foi criada e atualmente utiliza 30.0 pontos, conforme o seed da tabela `criterios`.
-> 3. O valor de 30.0 está fixo temporariamente na implementação Java e ainda precisa ser avaliado quanto à possibilidade de leitura dinâmica da tabela `criterios`.
-> 4. A `CriterioPcdStrategy` depende de `Inscricao.getAluno()`, associação contemplada na classe `Inscricao.java`.
-> 5. A Factory foi criada, mas somente o critério PCD está implementado. `RENDA`, `PROXIMIDADE` e `IRMAO` continuam pendentes de definição e implementação.
-> 6. Compilação do projeto verificada com sucesso (`mvn clean package -DskipTests` e `mvn test-compile`).
-
----
-
-### 👥 Etapa de Integração (Giselle & Maria em Parceria)
-
-#### 5.1 Módulo de Inscrições e Fila de Espera (`inscricoes`, `inscricao_criterios`)
-- [x] Enum `StatusInscricao.java` (`EM_ESPERA`, `CHAMADO`, `MATRICULADO`, `CANCELADO`, `EXPIRADO`)
-- [x] Modelos `Inscricao.java`, `InscricaoCriterio.java` e `Criterio.java`
-- [ ] DAO JDBC `InscricaoDAO.java` (cadastro, busca por protocolo, fila ordenada, atualização de status)
-- [ ] Serviço `InscricaoService.java` (coordenação entre pontuação Strategy, protocolo e vagas)
-- [ ] Controlador REST `InscricaoController.java` (`POST /api/inscricoes`, `GET /api/inscricoes/protocolo/{protocolo}`, `GET /api/turmas/{turmaId}/fila`, `POST /api/inscricoes/{id}/convocar`, `POST /api/inscricoes/{id}/matricular`, `POST /api/inscricoes/{id}/cancelar`)
-- [x] Tarefa concorrente `TarefaRecalcularFila.java` (`Runnable`, ordenação e reclassificação de posições)
+Os testes cobrem: `CriterioPontuacaoTest` (Padrão Strategy), `CpfCryptoServiceTest` (AES-256-GCM + HMAC + mascaramento), `TokenServiceTest`, `PasswordHasherTest`, `AuthServiceTest` e `SiveApplicationTests`.

@@ -1,66 +1,137 @@
-### 1. Cadastrar Escola
-POST http://localhost:8080/api/escolas
+@baseUrl = http://localhost:8080
+# Após executar o Login abaixo, cole o token retornado aqui:
+@token = COLE_SEU_TOKEN_AQUI
+
+### 1. Health Check (Público)
+GET {{baseUrl}}/api/health
+
+### 2. Login da Escola (Público - gera Bearer Token)
+POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "nome": "EMEF Cecília Meireles",
-  "bairro": "Centro",
-  "cidade": "São Paulo",
-  "capacidadeTotal": 450
+  "codigo": "EMEI-0001",
+  "senha": "sive123"
 }
 
-### 2. Listar Escolas
-GET http://localhost:8080/api/escolas
-
-### 3. Cadastrar Turma
-POST http://localhost:8080/api/turmas
+### 3. Consulta Pública por CPF + Protocolo (Acompanhar Matrícula)
+POST {{baseUrl}}/api/publico/consulta
 Content-Type: application/json
 
 {
-  "escolaId": "11111111-1111-1111-1111-111111111111",
-  "serieAno": "1º Ano Fundamental",
-  "turno": "MANHA",
-  "vagasTotais": 30,
+  "cpf": "333.444.555-66",
+  "protocolo": "SIVE-SIM0001"
+}
+
+### 4. Consulta Pública Direta por Protocolo (Link / QR Code)
+GET {{baseUrl}}/api/publico/consulta/protocolo/SIVE-SIM0001
+
+### 5. Perfil e Resumo da Escola (Autenticado)
+GET {{baseUrl}}/api/escola/resumo
+Authorization: Bearer {{token}}
+
+### 6. Listar Critérios de Pontuação (Strategy)
+GET {{baseUrl}}/api/escola/criterios
+Authorization: Bearer {{token}}
+
+### 7. Listar Turmas da Escola
+GET {{baseUrl}}/api/escola/turmas
+Authorization: Bearer {{token}}
+
+### 8. Criar Nova Turma
+POST {{baseUrl}}/api/escola/turmas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "serieAno": "Maternal II",
+  "nome": "Turma B",
+  "turno": "TARDE",
+  "vagasTotais": 20,
   "vagasDisponiveis": 5
 }
 
-### 4. Recalcular Fila Concorrente da Turma
-POST http://localhost:8080/api/turmas/11111111-1111-1111-1111-111111111111/recalcular
+### 9. Listar Responsáveis (CPF mascarado na listagem)
+GET {{baseUrl}}/api/escola/responsaveis
+Authorization: Bearer {{token}}
 
-### 5. Cadastrar Responsável
-POST http://localhost:8080/api/responsaveis
+### 10. Detalhes de Responsável com CPF completo (para edição/revelação)
+GET {{baseUrl}}/api/escola/responsaveis/20000000-0000-0000-0000-000000000003?incluirCpfCompleto=true
+Authorization: Bearer {{token}}
+
+### 11. Cadastrar Novo Responsável
+POST {{baseUrl}}/api/escola/responsaveis
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "nome": "Maria Silva",
-  "cpf": "123.456.789-00",
-  "telefone": "(11) 98765-4321",
-  "rendaFamiliar": 1400.00
+  "nome": "Beatriz Nogueira",
+  "cpf": "717.818.919-00",
+  "telefone": "(11) 98888-7777"
 }
 
-### 5. Cadastrar Aluno
-POST http://localhost:8080/api/alunos
+### 12. Listar Alunos da Escola (CPF mascarado na listagem)
+GET {{baseUrl}}/api/escola/alunos
+Authorization: Bearer {{token}}
+
+### 13. Detalhes de Aluno com CPF completo
+GET {{baseUrl}}/api/escola/alunos/30000000-0000-0000-0000-000000000001?incluirCpfCompleto=true
+Authorization: Bearer {{token}}
+
+### 14. Cadastrar Novo Aluno com Inscrição na Lista de Espera (retorna protocolo)
+POST {{baseUrl}}/api/escola/alunos
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "responsavelId": "22222222-2222-2222-2222-222222222222",
-  "nome": "Lucas Silva",
-  "dataNascimento": "2020-05-15",
-  "certidaoNascimento": "123456.01.55.2020.1.00001.001.0000001-00",
-  "temNecessidadeEspecial": false
+  "nome": "Heitor Nogueira",
+  "cpf": "818.919.020-11",
+  "dataNascimento": "2023-05-10",
+  "tipoVaga": "CRECHE",
+  "serieAno": "Maternal I",
+  "turno": "MANHA",
+  "endereco": {
+    "cep": "01310-100",
+    "rua": "Av. Paulista",
+    "numero": "1000",
+    "bairro": "Bela Vista",
+    "cidade": "São Paulo",
+    "estado": "SP"
+  },
+  "rendaPerCapita": 650.00,
+  "vulnerabilidadeSocioeconomica": true,
+  "responsavelSolo": false,
+  "moraDeAluguel": true,
+  "bolsaFamilia": true,
+  "bpcLoas": false,
+  "temNecessidadeEspecial": false,
+  "irmaoMatriculado": false,
+  "responsaveis": [
+    {
+      "responsavelId": "20000000-0000-0000-0000-000000000003",
+      "parentesco": "MAE"
+    }
+  ]
 }
 
-### 6. Criar Inscrição na Fila
-POST http://localhost:8080/api/inscricoes
+### 15. Listar Inscrições na Fila de Espera (ordenadas por pontuação)
+GET {{baseUrl}}/api/escola/inscricoes?status=EM_ESPERA
+Authorization: Bearer {{token}}
+
+### 16. Chamar Aluno da Fila
+POST {{baseUrl}}/api/escola/inscricoes/40000000-0000-0000-0000-000000000001/chamar
+Authorization: Bearer {{token}}
+
+### 17. Gerenciar Chamado (ACEITAR / RECUSAR / DESISTIR / REPASSAR / DESFAZER)
+PATCH {{baseUrl}}/api/escola/inscricoes/40000000-0000-0000-0000-000000000005/chamado
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "alunoId": "33333333-3333-3333-3333-333333333333",
-  "turmaId": "44444444-4444-4444-4444-444444444444"
+  "acao": "ACEITAR",
+  "turmaId": "10000000-0000-0000-0000-000000000001"
 }
 
-### 7. Consultar Inscrição por Protocolo
-GET http://localhost:8080/api/inscricoes/protocolo/2026-0001
-
-### 8. Listar Fila Ordenada da Turma
-GET http://localhost:8080/api/turmas/44444444-4444-4444-4444-444444444444/fila
+### 18. Histórico de Movimentação de Vagas
+GET {{baseUrl}}/api/escola/vagas/historico
+Authorization: Bearer {{token}}
