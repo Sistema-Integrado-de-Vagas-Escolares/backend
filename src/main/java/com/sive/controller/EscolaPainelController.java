@@ -16,6 +16,7 @@ import com.sive.model.ResponsavelResumo;
 import com.sive.model.ResumoEscola;
 import com.sive.model.StatusInscricao;
 import com.sive.model.Turma;
+import com.sive.model.AtualizarProximidadeRequest;
 import com.sive.security.EscolaAuthInterceptor;
 import com.sive.service.AlunoService;
 import com.sive.service.CriterioService;
@@ -284,6 +285,19 @@ public class EscolaPainelController {
      * autenticada.
      * POST /api/escola/alunos
      */
+    @PatchMapping("/alunos/{alunoId}/proximidade")
+    public ResponseEntity<AlunoDetalhe> atualizarProximidade(
+            @PathVariable UUID alunoId,
+            @RequestBody AtualizarProximidadeRequest payload,
+            HttpServletRequest request) throws SQLException {
+        UUID escolaId = obterEscolaIdAutenticada(request);
+        if (payload == null) {
+            throw new IllegalArgumentException("A decisão de proximidade é obrigatória.");
+        }
+        return ResponseEntity.ok(alunoService.atualizarProximidadeParaEscola(
+                escolaId, alunoId, payload.isAtendeProximidade()));
+    }
+
     @PostMapping("/alunos")
     public ResponseEntity<AlunoResumo> cadastrarAluno(
             @RequestBody CadastrarAlunoInscricaoRequest payload,

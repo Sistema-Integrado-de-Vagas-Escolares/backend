@@ -5,16 +5,14 @@ import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.function.Supplier;
 
-/**
- * Gerenciador de conexão JDBC com o banco de dados PostgreSQL.
- * Suporta configurações locais e variáveis de ambiente de nuvem (Fly.io).
- */
 public final class Conexao {
 
     private static String url;
     private static String usuario;
     private static String senha;
+    private static Supplier<Connection> conexaoCustomizada;
 
     static {
         configurarParametrosConexao();
@@ -27,6 +25,10 @@ public final class Conexao {
     }
 
     private Conexao() {
+    }
+
+    public static void setConexaoCustomizada(Supplier<Connection> supplier) {
+        conexaoCustomizada = supplier;
     }
 
     private static void configurarParametrosConexao() {
@@ -90,19 +92,13 @@ public final class Conexao {
         }
     }
 
-    /**
-     * Obtém uma conexãoo ativa com o banco PostgreSQL.
-     * 
-     * @return Connection aberta
-     * @throws SQLException caso ocorra falha de autenticacao ou conectividade
-     */
     public static Connection getConnection() throws SQLException {
+        if (conexaoCustomizada != null) {
+            return conexaoCustomizada.get();
+        }
         return DriverManager.getConnection(url, usuario, senha);
     }
 
-    /**
-     * Testa a conectividade com o banco de dados.
-     */
     public static void main(String[] args) {
         System.out.println("Tentando conectar ao PostgreSQL em: " + url);
         try (Connection conn = getConnection()) {

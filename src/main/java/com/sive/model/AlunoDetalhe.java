@@ -172,6 +172,7 @@ public class AlunoDetalhe {
     private boolean bolsaFamilia;
     private boolean bpcLoas;
     private boolean irmaoMatriculado;
+    private boolean atendeProximidade;
     private String protocolo;
     private String etapaOuTurma;
     private String serieAno;
@@ -330,6 +331,14 @@ public class AlunoDetalhe {
 
     public void setIrmaoMatriculado(boolean irmaoMatriculado) {
         this.irmaoMatriculado = irmaoMatriculado;
+    }
+
+    public boolean isAtendeProximidade() {
+        return atendeProximidade;
+    }
+
+    public void setAtendeProximidade(boolean atendeProximidade) {
+        this.atendeProximidade = atendeProximidade;
     }
 
     public String getSerieAno() {

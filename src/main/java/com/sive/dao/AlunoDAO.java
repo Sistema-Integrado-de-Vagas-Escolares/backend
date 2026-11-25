@@ -104,7 +104,7 @@ public class AlunoDAO {
 
     public Aluno buscarPorId(UUID id) throws SQLException {
         String sql = "SELECT id, nome, cpf, data_nascimento, " + COLUNAS_ENDERECO
-                + ", renda_per_capita, tem_necessidade_especial "
+                + ", renda_per_capita, tem_necessidade_especial, atende_proximidade "
                 + "FROM alunos WHERE id = ?";
 
         try (Connection conn = Conexao.getConnection();
@@ -124,7 +124,7 @@ public class AlunoDAO {
     public Aluno buscarPorCpf(String cpf) throws SQLException {
         String cpfHash = CpfCryptoService.gerarHash(cpf);
         String sql = "SELECT id, nome, cpf, data_nascimento, " + COLUNAS_ENDERECO
-                + ", renda_per_capita, tem_necessidade_especial "
+                + ", renda_per_capita, tem_necessidade_especial, atende_proximidade "
                 + "FROM alunos WHERE cpf_hash = ?";
 
         try (Connection conn = Conexao.getConnection();
@@ -144,7 +144,7 @@ public class AlunoDAO {
     public List<Aluno> listar() throws SQLException {
         List<Aluno> alunos = new ArrayList<>();
         String sql = "SELECT id, nome, cpf, data_nascimento, " + COLUNAS_ENDERECO
-                + ", renda_per_capita, tem_necessidade_especial "
+                + ", renda_per_capita, tem_necessidade_especial, atende_proximidade "
                 + "FROM alunos ORDER BY nome ASC";
 
         try (Connection conn = Conexao.getConnection();
@@ -158,9 +158,6 @@ public class AlunoDAO {
         return alunos;
     }
 
-    /**
-     * Lista os alunos com inscrição na escola autenticada, permitindo filtro por busca e nível (serieAno).
-     */
     public List<AlunoResumo> listarPorEscola(UUID escolaId, String busca, String serieAno) throws SQLException {
         List<AlunoResumo> lista = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
@@ -247,9 +244,26 @@ public class AlunoDAO {
             UUID escolaId,
             UUID alunoId,
             boolean incluirCpfCompleto) throws SQLException {
+        try (Connection conn = Conexao.getConnection()) {
+            return buscarDetalhePorEscola(conn, escolaId, alunoId, incluirCpfCompleto);
+        }
+    }
+
+    public AlunoDetalhe buscarDetalhePorEscola(
+            Connection conn,
+            UUID escolaId,
+            UUID alunoId) throws SQLException {
+        return buscarDetalhePorEscola(conn, escolaId, alunoId, false);
+    }
+
+    public AlunoDetalhe buscarDetalhePorEscola(
+            Connection conn,
+            UUID escolaId,
+            UUID alunoId,
+            boolean incluirCpfCompleto) throws SQLException {
         String sqlAluno = "SELECT a.id, a.nome, a.cpf, a.data_nascimento, " + COLUNAS_ENDERECO_ALIASED
                 + ", a.renda_per_capita, a.tem_necessidade_especial, "
-                + "a.vulnerabilidade_socioeconomica, a.responsavel_solo, a.mora_de_aluguel, "
+                + "a.atende_proximidade, a.vulnerabilidade_socioeconomica, a.responsavel_solo, a.mora_de_aluguel, "
                 + "a.bolsa_familia, a.bpc_loas, a.irmao_matriculado, "
                 + "i.id AS inscricao_id, i.protocolo, "
                 + "COALESCE(t.serie_ano, i.serie_ano, CASE i.tipo_vaga WHEN 'CRECHE' THEN 'Creche' WHEN 'FUNDAMENTAL' THEN 'Fundamental' ELSE 'Lista de Espera' END) AS etapa_ou_turma, "
@@ -269,83 +283,82 @@ public class AlunoDAO {
                 + "WHERE ar.aluno_id = ? "
                 + "ORDER BY ar.is_contato_principal DESC, r.nome ASC";
 
-        try (Connection conn = Conexao.getConnection()) {
-            AlunoDetalhe detalhe = null;
-            UUID inscricaoId = null;
-            try (PreparedStatement stmt = conn.prepareStatement(sqlAluno)) {
-                stmt.setObject(1, alunoId);
-                stmt.setObject(2, escolaId);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        inscricaoId = (UUID) rs.getObject("inscricao_id");
-                        Date sqlDate = rs.getDate("data_nascimento");
-                        Timestamp tsInscricao = rs.getTimestamp("data_inscricao");
-                        Timestamp tsChamada = rs.getTimestamp("data_chamada");
+        AlunoDetalhe detalhe = null;
+        UUID inscricaoId = null;
+        try (PreparedStatement stmt = conn.prepareStatement(sqlAluno)) {
+            stmt.setObject(1, alunoId);
+            stmt.setObject(2, escolaId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    inscricaoId = (UUID) rs.getObject("inscricao_id");
+                    Date sqlDate = rs.getDate("data_nascimento");
+                    Timestamp tsInscricao = rs.getTimestamp("data_inscricao");
+                    Timestamp tsChamada = rs.getTimestamp("data_chamada");
 
-                        String cpfBruto = rs.getString("cpf");
-                        String cpfExibicao = incluirCpfCompleto
-                                ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfBruto))
-                                : CpfCryptoService.mascararParaExibicao(cpfBruto);
+                    String cpfBruto = rs.getString("cpf");
+                    String cpfExibicao = incluirCpfCompleto
+                            ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfBruto))
+                            : CpfCryptoService.mascararParaExibicao(cpfBruto);
 
-                        detalhe = new AlunoDetalhe(
-                                (UUID) rs.getObject("id"),
-                                rs.getString("nome"),
-                                cpfExibicao,
-                                sqlDate != null ? sqlDate.toLocalDate() : null,
-                                mapearEndereco(rs),
-                                rs.getBigDecimal("renda_per_capita"),
-                                rs.getBoolean("tem_necessidade_especial"),
-                                rs.getString("protocolo"),
-                                rs.getString("etapa_ou_turma"),
-                                rs.getString("turma_nome"),
-                                rs.getString("tipo_vaga"),
-                                rs.getString("turno"),
-                                rs.getBigDecimal("pontuacao_total"),
-                                rs.getString("status_inscricao"),
-                                tsInscricao != null ? tsInscricao.toLocalDateTime() : null,
-                                tsChamada != null ? tsChamada.toLocalDateTime() : null,
-                                new ArrayList<>());
-                        detalhe.setSerieAno(rs.getString("serie_ano"));
-                        detalhe.setVulnerabilidadeSocioeconomica(rs.getBoolean("vulnerabilidade_socioeconomica"));
-                        detalhe.setResponsavelSolo(rs.getBoolean("responsavel_solo"));
-                        detalhe.setMoraDeAluguel(rs.getBoolean("mora_de_aluguel"));
-                        detalhe.setBolsaFamilia(rs.getBoolean("bolsa_familia"));
-                        detalhe.setBpcLoas(rs.getBoolean("bpc_loas"));
-                        detalhe.setIrmaoMatriculado(rs.getBoolean("irmao_matriculado"));
-                    }
+                    detalhe = new AlunoDetalhe(
+                            (UUID) rs.getObject("id"),
+                            rs.getString("nome"),
+                            cpfExibicao,
+                            sqlDate != null ? sqlDate.toLocalDate() : null,
+                            mapearEndereco(rs),
+                            rs.getBigDecimal("renda_per_capita"),
+                            rs.getBoolean("tem_necessidade_especial"),
+                            rs.getString("protocolo"),
+                            rs.getString("etapa_ou_turma"),
+                            rs.getString("turma_nome"),
+                            rs.getString("tipo_vaga"),
+                            rs.getString("turno"),
+                            rs.getBigDecimal("pontuacao_total"),
+                            rs.getString("status_inscricao"),
+                            tsInscricao != null ? tsInscricao.toLocalDateTime() : null,
+                            tsChamada != null ? tsChamada.toLocalDateTime() : null,
+                            new ArrayList<>());
+                    detalhe.setSerieAno(rs.getString("serie_ano"));
+                    detalhe.setVulnerabilidadeSocioeconomica(rs.getBoolean("vulnerabilidade_socioeconomica"));
+                    detalhe.setResponsavelSolo(rs.getBoolean("responsavel_solo"));
+                    detalhe.setMoraDeAluguel(rs.getBoolean("mora_de_aluguel"));
+                    detalhe.setBolsaFamilia(rs.getBoolean("bolsa_familia"));
+                    detalhe.setBpcLoas(rs.getBoolean("bpc_loas"));
+                    detalhe.setIrmaoMatriculado(rs.getBoolean("irmao_matriculado"));
+                    detalhe.setAtendeProximidade(rs.getBoolean("atende_proximidade"));
                 }
             }
-
-            if (detalhe == null) {
-                return null;
-            }
-
-            List<AlunoDetalhe.ResponsavelVinculadoDetalhe> responsaveis = new ArrayList<>();
-            try (PreparedStatement stmtResp = conn.prepareStatement(sqlResponsaveis)) {
-                stmtResp.setObject(1, alunoId);
-                try (ResultSet rsResp = stmtResp.executeQuery()) {
-                    while (rsResp.next()) {
-                        String cpfRespBruto = rsResp.getString("cpf");
-                        String cpfRespExibicao = incluirCpfCompleto
-                                ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfRespBruto))
-                                : CpfCryptoService.mascararParaExibicao(cpfRespBruto);
-                        responsaveis.add(new AlunoDetalhe.ResponsavelVinculadoDetalhe(
-                                (UUID) rsResp.getObject("id"),
-                                rsResp.getString("nome"),
-                                cpfRespExibicao,
-                                rsResp.getString("telefone"),
-                                rsResp.getString("parentesco"),
-                                rsResp.getBoolean("is_contato_principal")));
-                    }
-                }
-            }
-            detalhe.setResponsaveis(responsaveis);
-            if (inscricaoId != null) {
-                InscricaoCriterioDAO inscricaoCriterioDAO = new InscricaoCriterioDAO();
-                detalhe.setCriteriosPontuados(inscricaoCriterioDAO.listarDetalhesPorInscricao(conn, inscricaoId));
-            }
-            return detalhe;
         }
+
+        if (detalhe == null) {
+            return null;
+        }
+
+        List<AlunoDetalhe.ResponsavelVinculadoDetalhe> responsaveis = new ArrayList<>();
+        try (PreparedStatement stmtResp = conn.prepareStatement(sqlResponsaveis)) {
+            stmtResp.setObject(1, alunoId);
+            try (ResultSet rsResp = stmtResp.executeQuery()) {
+                while (rsResp.next()) {
+                    String cpfRespBruto = rsResp.getString("cpf");
+                    String cpfRespExibicao = incluirCpfCompleto
+                            ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfRespBruto))
+                            : CpfCryptoService.mascararParaExibicao(cpfRespBruto);
+                    responsaveis.add(new AlunoDetalhe.ResponsavelVinculadoDetalhe(
+                            (UUID) rsResp.getObject("id"),
+                            rsResp.getString("nome"),
+                            cpfRespExibicao,
+                            rsResp.getString("telefone"),
+                            rsResp.getString("parentesco"),
+                            rsResp.getBoolean("is_contato_principal")));
+                }
+            }
+        }
+        detalhe.setResponsaveis(responsaveis);
+        if (inscricaoId != null) {
+            InscricaoCriterioDAO inscricaoCriterioDAO = new InscricaoCriterioDAO();
+            detalhe.setCriteriosPontuados(inscricaoCriterioDAO.listarDetalhesPorInscricao(conn, inscricaoId));
+        }
+        return detalhe;
     }
 
     public void atualizar(Aluno aluno, boolean atualizarCpf, Connection conn) throws SQLException {
@@ -397,6 +410,49 @@ public class AlunoDAO {
         }
     }
 
+    public boolean atualizarProximidadePorEscola(
+            Connection conn,
+            UUID escolaId,
+            UUID alunoId,
+            boolean atendeProximidade) throws SQLException {
+        String sql = "UPDATE alunos SET atende_proximidade = ? "
+                + "WHERE id = ? AND EXISTS ("
+                + "SELECT 1 FROM inscricoes i "
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE i.aluno_id = alunos.id "
+                + "AND COALESCE(i.escola_id, t.escola_id) = ?"
+                + ")";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setBoolean(1, atendeProximidade);
+            stmt.setObject(2, alunoId);
+            stmt.setObject(3, escolaId);
+            return stmt.executeUpdate() > 0;
+        }
+    }
+
+    public UUID atualizarPontuacaoInscricaoEscola(
+            Connection conn,
+            UUID escolaId,
+            UUID alunoId,
+            BigDecimal pontuacaoTotal) throws SQLException {
+        String sql = "UPDATE inscricoes SET pontuacao_total = ? "
+                + "WHERE id = ("
+                + "SELECT i.id FROM inscricoes i "
+                + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                + "WHERE i.aluno_id = ? "
+                + "AND COALESCE(i.escola_id, t.escola_id) = ? "
+                + "ORDER BY i.created_at DESC LIMIT 1"
+                + ") RETURNING id";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setBigDecimal(1, pontuacaoTotal);
+            stmt.setObject(2, alunoId);
+            stmt.setObject(3, escolaId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? (UUID) rs.getObject("id") : null;
+            }
+        }
+    }
+
     public UUID atualizarInscricaoEscola(
             Connection conn,
             UUID escolaId,
@@ -432,7 +488,7 @@ public class AlunoDAO {
         Date sqlDate = rs.getDate("data_nascimento");
         LocalDate dataNascimento = sqlDate != null ? sqlDate.toLocalDate() : null;
 
-        return new Aluno(
+        Aluno aluno = new Aluno(
                 (UUID) rs.getObject("id"),
                 rs.getString("nome"),
                 CpfCryptoService.mascararParaExibicao(rs.getString("cpf")),
@@ -440,6 +496,8 @@ public class AlunoDAO {
                 mapearEndereco(rs),
                 rs.getBigDecimal("renda_per_capita"),
                 rs.getBoolean("tem_necessidade_especial"));
+        aluno.setAtendeProximidade(rs.getBoolean("atende_proximidade"));
+        return aluno;
     }
 
     private Endereco mapearEndereco(ResultSet rs) throws SQLException {

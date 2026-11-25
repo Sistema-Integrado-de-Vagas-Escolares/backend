@@ -46,15 +46,14 @@ public class ResponsavelDAO {
         }
     }
 
-    public void atualizar(Responsavel responsavel, boolean atualizarCpf) throws SQLException {
+    public void atualizar(Responsavel responsavel, boolean atualizarCpf, Connection conn) throws SQLException {
         StringBuilder sql = new StringBuilder("UPDATE responsaveis SET nome = ?, telefone = ? ");
         if (atualizarCpf) {
             sql.append(", cpf = ?, cpf_hash = ? ");
         }
         sql.append("WHERE id = ?");
 
-        try (Connection conn = Conexao.getConnection();
-                PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+        try (PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
             int idx = 1;
             stmt.setString(idx++, responsavel.getNome());
             stmt.setString(idx++, responsavel.getTelefone());
@@ -64,6 +63,12 @@ public class ResponsavelDAO {
             }
             stmt.setObject(idx, responsavel.getId());
             stmt.executeUpdate();
+        }
+    }
+
+    public void atualizar(Responsavel responsavel, boolean atualizarCpf) throws SQLException {
+        try (Connection conn = Conexao.getConnection()) {
+            atualizar(responsavel, atualizarCpf, conn);
         }
     }
 
@@ -117,10 +122,6 @@ public class ResponsavelDAO {
         return responsaveis;
     }
 
-    /**
-     * Lista responsáveis com a contagem de filhos vinculados e filtros opcionais de busca e vínculo.
-     * Quando a busca contém um CPF completo (11 dígitos), consulta pelo cpf_hash.
-     */
     public List<ResponsavelResumo> listarComTotalFilhos(String busca, Boolean comFilhos) throws SQLException {
         List<ResponsavelResumo> lista = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
@@ -172,11 +173,88 @@ public class ResponsavelDAO {
         return lista;
     }
 
+    public List<ResponsavelResumo> listarPorEscola(UUID escolaId, String busca, Boolean comFilhos) throws SQLException {
+        List<ResponsavelResumo> lista = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+                "SELECT r.id, r.nome, r.cpf, r.telefone, "
+                        + "COUNT(DISTINCT a.id) AS total_filhos "
+                        + "FROM responsaveis r "
+                        + "INNER JOIN aluno_responsaveis ar ON ar.responsavel_id = r.id "
+                        + "INNER JOIN alunos a ON a.id = ar.aluno_id "
+                        + "INNER JOIN inscricoes i ON i.aluno_id = a.id "
+                        + "LEFT JOIN turmas t ON t.id = i.turma_id "
+                        + "WHERE COALESCE(i.escola_id, t.escola_id) = ? ");
+
+        boolean temBusca = busca != null && !busca.trim().isEmpty();
+        String digitosBusca = temBusca ? CpfCryptoService.normalizarDigitos(busca) : "";
+        boolean buscaPorCpfHash = temBusca && digitosBusca.length() == 11;
+
+        if (buscaPorCpfHash) {
+            sql.append("AND r.cpf_hash = ? ");
+        } else if (temBusca) {
+            sql.append("AND (LOWER(r.nome) LIKE ? OR LOWER(a.nome) LIKE ?) ");
+        }
+
+        sql.append("GROUP BY r.id, r.nome, r.cpf, r.telefone ");
+
+        if (Boolean.TRUE.equals(comFilhos)) {
+            sql.append("HAVING COUNT(DISTINCT a.id) > 0 ");
+        } else if (Boolean.FALSE.equals(comFilhos)) {
+            sql.append("HAVING COUNT(DISTINCT a.id) = 0 ");
+        }
+
+        sql.append("ORDER BY r.nome ASC");
+
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+
+            int idx = 1;
+            stmt.setObject(idx++, escolaId);
+
+            if (buscaPorCpfHash) {
+                stmt.setString(idx++, CpfCryptoService.gerarHash(digitosBusca));
+            } else if (temBusca) {
+                String termo = "%" + busca.trim().toLowerCase() + "%";
+                stmt.setString(idx++, termo);
+                stmt.setString(idx++, termo);
+            }
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new ResponsavelResumo(
+                            (UUID) rs.getObject("id"),
+                            rs.getString("nome"),
+                            CpfCryptoService.mascararParaExibicao(rs.getString("cpf")),
+                            rs.getString("telefone"),
+                            rs.getInt("total_filhos")));
+                }
+            }
+        }
+        return lista;
+    }
+
     public ResponsavelDetalhe buscarDetalhePorEscola(UUID escolaId, UUID responsavelId) throws SQLException {
         return buscarDetalhePorEscola(escolaId, responsavelId, false);
     }
 
     public ResponsavelDetalhe buscarDetalhePorEscola(
+            UUID escolaId,
+            UUID responsavelId,
+            boolean incluirCpfCompleto) throws SQLException {
+        try (Connection conn = Conexao.getConnection()) {
+            return buscarDetalhePorEscola(conn, escolaId, responsavelId, incluirCpfCompleto);
+        }
+    }
+
+    public ResponsavelDetalhe buscarDetalhePorEscola(
+            Connection conn,
+            UUID escolaId,
+            UUID responsavelId) throws SQLException {
+        return buscarDetalhePorEscola(conn, escolaId, responsavelId, false);
+    }
+
+    public ResponsavelDetalhe buscarDetalhePorEscola(
+            Connection conn,
             UUID escolaId,
             UUID responsavelId,
             boolean incluirCpfCompleto) throws SQLException {
@@ -191,68 +269,71 @@ public class ResponsavelDAO {
                 + "ar.is_contato_principal "
                 + "FROM aluno_responsaveis ar "
                 + "INNER JOIN alunos a ON a.id = ar.aluno_id "
-                + "LEFT JOIN inscricoes i ON i.aluno_id = a.id "
+                + "INNER JOIN inscricoes i ON i.aluno_id = a.id "
                 + "LEFT JOIN turmas t ON t.id = i.turma_id "
                 + "WHERE ar.responsavel_id = ? "
-                + "AND (i.id IS NULL OR COALESCE(i.escola_id, t.escola_id) = ?) "
-                + "ORDER BY a.id, i.created_at DESC NULLS LAST";
+                + "AND COALESCE(i.escola_id, t.escola_id) = ? "
+                + "ORDER BY a.id, i.created_at DESC";
 
-        try (Connection conn = Conexao.getConnection()) {
-            ResponsavelDetalhe detalhe = null;
-            try (PreparedStatement stmt = conn.prepareStatement(sqlResp)) {
-                stmt.setObject(1, responsavelId);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        String cpfBruto = rs.getString("cpf");
-                        String cpfExibicao = incluirCpfCompleto
-                                ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfBruto))
-                                : CpfCryptoService.mascararParaExibicao(cpfBruto);
+        ResponsavelDetalhe detalhe = null;
+        try (PreparedStatement stmt = conn.prepareStatement(sqlResp)) {
+            stmt.setObject(1, responsavelId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    String cpfBruto = rs.getString("cpf");
+                    String cpfExibicao = incluirCpfCompleto
+                            ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfBruto))
+                            : CpfCryptoService.mascararParaExibicao(cpfBruto);
 
-                        detalhe = new ResponsavelDetalhe(
-                                (UUID) rs.getObject("id"),
-                                rs.getString("nome"),
-                                cpfExibicao,
-                                rs.getString("telefone"),
-                                new ArrayList<>());
-                    }
+                    detalhe = new ResponsavelDetalhe(
+                            (UUID) rs.getObject("id"),
+                            rs.getString("nome"),
+                            cpfExibicao,
+                            rs.getString("telefone"),
+                            new ArrayList<>());
                 }
             }
-
-            if (detalhe == null) {
-                return null;
-            }
-
-            List<ResponsavelDetalhe.FilhoVinculadoResumo> filhos = new ArrayList<>();
-            try (PreparedStatement stmtFilhos = conn.prepareStatement(sqlFilhos)) {
-                stmtFilhos.setObject(1, responsavelId);
-                stmtFilhos.setObject(2, escolaId);
-                try (ResultSet rsFilhos = stmtFilhos.executeQuery()) {
-                    while (rsFilhos.next()) {
-                        Date sqlDate = rsFilhos.getDate("data_nascimento");
-                        String cpfFilhoBruto = rsFilhos.getString("cpf");
-                        String cpfFilhoExibicao = incluirCpfCompleto
-                                ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfFilhoBruto))
-                                : CpfCryptoService.mascararParaExibicao(cpfFilhoBruto);
-                        filhos.add(new ResponsavelDetalhe.FilhoVinculadoResumo(
-                                (UUID) rsFilhos.getObject("id"),
-                                rsFilhos.getString("nome"),
-                                cpfFilhoExibicao,
-                                sqlDate != null ? sqlDate.toLocalDate() : null,
-                                rsFilhos.getString("etapa_ou_turma"),
-                                rsFilhos.getString("turma_nome"),
-                                rsFilhos.getString("status_inscricao"),
-                                rsFilhos.getBigDecimal("pontuacao_total"),
-                                rsFilhos.getString("parentesco"),
-                                rsFilhos.getBoolean("is_contato_principal")));
-                    }
-                }
-            }
-            filhos.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
-                    a.getNome() != null ? a.getNome() : "",
-                    b.getNome() != null ? b.getNome() : ""));
-            detalhe.setFilhos(filhos);
-            return detalhe;
         }
+
+        if (detalhe == null) {
+            return null;
+        }
+
+        List<ResponsavelDetalhe.FilhoVinculadoResumo> filhos = new ArrayList<>();
+        try (PreparedStatement stmtFilhos = conn.prepareStatement(sqlFilhos)) {
+            stmtFilhos.setObject(1, responsavelId);
+            stmtFilhos.setObject(2, escolaId);
+            try (ResultSet rsFilhos = stmtFilhos.executeQuery()) {
+                while (rsFilhos.next()) {
+                    Date sqlDate = rsFilhos.getDate("data_nascimento");
+                    String cpfFilhoBruto = rsFilhos.getString("cpf");
+                    String cpfFilhoExibicao = incluirCpfCompleto
+                            ? CpfCryptoService.formatar(CpfCryptoService.descriptografar(cpfFilhoBruto))
+                            : CpfCryptoService.mascararParaExibicao(cpfFilhoBruto);
+                    filhos.add(new ResponsavelDetalhe.FilhoVinculadoResumo(
+                            (UUID) rsFilhos.getObject("id"),
+                            rsFilhos.getString("nome"),
+                            cpfFilhoExibicao,
+                            sqlDate != null ? sqlDate.toLocalDate() : null,
+                            rsFilhos.getString("etapa_ou_turma"),
+                            rsFilhos.getString("turma_nome"),
+                            rsFilhos.getString("status_inscricao"),
+                            rsFilhos.getBigDecimal("pontuacao_total"),
+                            rsFilhos.getString("parentesco"),
+                            rsFilhos.getBoolean("is_contato_principal")));
+                }
+            }
+        }
+
+        if (filhos.isEmpty()) {
+            return null;
+        }
+
+        filhos.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
+                a.getNome() != null ? a.getNome() : "",
+                b.getNome() != null ? b.getNome() : ""));
+        detalhe.setFilhos(filhos);
+        return detalhe;
     }
 
     private Responsavel mapearResultSet(ResultSet rs) throws SQLException {

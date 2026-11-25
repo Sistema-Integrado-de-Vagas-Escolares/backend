@@ -17,6 +17,7 @@ public class Aluno extends Pessoa {
     private boolean bolsaFamilia;
     private boolean bpcLoas;
     private boolean irmaoMatriculado;
+    private boolean atendeProximidade;
 
     public Aluno() {
         super();
@@ -141,6 +142,14 @@ public class Aluno extends Pessoa {
 
     public void setIrmaoMatriculado(boolean irmaoMatriculado) {
         this.irmaoMatriculado = irmaoMatriculado;
+    }
+
+    public boolean isAtendeProximidade() {
+        return atendeProximidade;
+    }
+
+    public void setAtendeProximidade(boolean atendeProximidade) {
+        this.atendeProximidade = atendeProximidade;
     }
 
     @Override

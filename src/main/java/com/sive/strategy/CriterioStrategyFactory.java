@@ -12,6 +12,9 @@ public final class CriterioStrategyFactory {
         }
         return switch (codigoCriterio.trim().toUpperCase()) {
             case "RENDA" -> new CriterioRendaStrategy();
+            case "PROXIMIDADE" -> new CriterioBooleanoStrategy(
+                    "Proximidade da residência à escola",
+                    Aluno::isAtendeProximidade);
             case "PCD" -> new CriterioBooleanoStrategy(
                     "Aluno com deficiência ou necessidade especial (PcD)",
                     Aluno::isTemNecessidadeEspecial);

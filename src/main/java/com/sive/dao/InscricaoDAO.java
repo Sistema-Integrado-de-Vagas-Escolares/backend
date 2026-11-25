@@ -19,16 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Data Access Object (DAO) para consultas e transições de inscrições da escola.
- */
 public class InscricaoDAO {
 
-    /**
-     * Lista as inscrições da escola filtradas por status, busca e turma,
-     * ordenadas por pontuação total (DESC) e data de inscrição (ASC),
-     * calculando a posição dinamicamente para EM_ESPERA e CHAMADO.
-     */
     public List<InscricaoEscolaResumo> listarPorEscola(
             UUID escolaId,
             StatusInscricao status,
@@ -129,9 +121,6 @@ public class InscricaoDAO {
         return lista;
     }
 
-    /**
-     * Retorna os totais por status de inscrição da escola.
-     */
     public Map<StatusInscricao, Integer> contarPorStatus(UUID escolaId) throws SQLException {
         Map<StatusInscricao, Integer> contagens = new EnumMap<>(StatusInscricao.class);
         String sql = "SELECT i.status, COUNT(*) AS total "
@@ -155,9 +144,6 @@ public class InscricaoDAO {
         return contagens;
     }
 
-    /**
-     * Busca dados básicos da inscrição garantindo vínculo com a escola.
-     */
     public InscricaoEscolaResumo buscarPorIdEEscola(UUID inscricaoId, UUID escolaId) throws SQLException {
         String sql = "SELECT i.id, i.aluno_id, a.nome AS aluno_nome, a.data_nascimento AS aluno_data_nascimento, "
                 + "i.turma_id, i.tipo_vaga, i.turno, i.protocolo, i.pontuacao_total, i.status, i.data_inscricao, i.data_chamada "
@@ -197,6 +183,17 @@ public class InscricaoDAO {
         return null;
     }
 
+    public boolean chamar(UUID inscricaoId, UUID escolaId) throws SQLException {
+        String sql = "UPDATE inscricoes SET status = 'CHAMADO', data_chamada = CURRENT_TIMESTAMP "
+                + "WHERE id = ? AND COALESCE(escola_id, (SELECT t.escola_id FROM turmas t WHERE t.id = inscricoes.turma_id)) = ?";
+        try (Connection conn = Conexao.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, inscricaoId);
+            stmt.setObject(2, escolaId);
+            return stmt.executeUpdate() > 0;
+        }
+    }
+
     public void chamar(UUID inscricaoId) throws SQLException {
         String sql = "UPDATE inscricoes SET status = 'CHAMADO', data_chamada = CURRENT_TIMESTAMP WHERE id = ?";
         try (Connection conn = Conexao.getConnection();
@@ -206,9 +203,10 @@ public class InscricaoDAO {
         }
     }
 
-    public void atualizarStatusChamado(
+    public boolean atualizarStatusChamado(
             Connection conn,
             UUID inscricaoId,
+            UUID escolaId,
             StatusInscricao novoStatus,
             UUID turmaId,
             boolean limparDataChamada) throws SQLException {
@@ -220,6 +218,9 @@ public class InscricaoDAO {
             sql.append(", data_chamada = NULL");
         }
         sql.append(" WHERE id = ?");
+        if (escolaId != null) {
+            sql.append(" AND COALESCE(escola_id, (SELECT t.escola_id FROM turmas t WHERE t.id = inscricoes.turma_id)) = ?");
+        }
 
         try (PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
             int idx = 1;
@@ -228,17 +229,39 @@ public class InscricaoDAO {
                 stmt.setObject(idx++, turmaId);
             }
             stmt.setObject(idx++, inscricaoId);
-            stmt.executeUpdate();
+            if (escolaId != null) {
+                stmt.setObject(idx++, escolaId);
+            }
+            return stmt.executeUpdate() > 0;
+        }
+    }
+
+    public void atualizarStatusChamado(
+            Connection conn,
+            UUID inscricaoId,
+            StatusInscricao novoStatus,
+            UUID turmaId,
+            boolean limparDataChamada) throws SQLException {
+        atualizarStatusChamado(conn, inscricaoId, null, novoStatus, turmaId, limparDataChamada);
+    }
+
+    public boolean decrementarVagaTurma(Connection conn, UUID turmaId, UUID escolaId) throws SQLException {
+        StringBuilder sql = new StringBuilder("UPDATE turmas SET vagas_disponiveis = vagas_disponiveis - 1 "
+                + "WHERE id = ? AND vagas_disponiveis > 0");
+        if (escolaId != null) {
+            sql.append(" AND escola_id = ?");
+        }
+        try (PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            stmt.setObject(1, turmaId);
+            if (escolaId != null) {
+                stmt.setObject(2, escolaId);
+            }
+            return stmt.executeUpdate() > 0;
         }
     }
 
     public boolean decrementarVagaTurma(Connection conn, UUID turmaId) throws SQLException {
-        String sql = "UPDATE turmas SET vagas_disponiveis = vagas_disponiveis - 1 "
-                + "WHERE id = ? AND vagas_disponiveis > 0";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, turmaId);
-            return stmt.executeUpdate() > 0;
-        }
+        return decrementarVagaTurma(conn, turmaId, null);
     }
 
     public List<Inscricao> listarInscricoesEmEsperaParaRecalculo(Connection conn) throws SQLException {

@@ -1,5 +1,6 @@
 package com.sive.service;
 
+import com.sive.dao.Conexao;
 import com.sive.dao.ResponsavelDAO;
 import com.sive.model.Responsavel;
 import com.sive.model.ResponsavelDetalhe;
@@ -7,6 +8,7 @@ import com.sive.model.ResponsavelResumo;
 import com.sive.security.CpfCryptoService;
 import org.springframework.stereotype.Service;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +20,10 @@ public class ResponsavelService {
 
     public ResponsavelService() {
         this.responsavelDAO = new ResponsavelDAO();
+    }
+
+    public ResponsavelService(ResponsavelDAO responsavelDAO) {
+        this.responsavelDAO = responsavelDAO;
     }
 
     public Responsavel cadastrar(Responsavel responsavel) throws SQLException {
@@ -53,6 +59,13 @@ public class ResponsavelService {
         return responsavelDAO.listarComTotalFilhos(busca, comFilhos);
     }
 
+    public List<ResponsavelResumo> listarPorEscola(UUID escolaId, String busca, Boolean comFilhos) throws SQLException {
+        if (escolaId == null) {
+            throw new IllegalArgumentException("O ID da escola é obrigatório.");
+        }
+        return responsavelDAO.listarPorEscola(escolaId, busca, comFilhos);
+    }
+
     public ResponsavelDetalhe buscarDetalhePorEscola(UUID escolaId, UUID responsavelId) throws SQLException {
         return buscarDetalhePorEscola(escolaId, responsavelId, false);
     }
@@ -66,7 +79,7 @@ public class ResponsavelService {
         }
         ResponsavelDetalhe detalhe = responsavelDAO.buscarDetalhePorEscola(escolaId, responsavelId, incluirCpfCompleto);
         if (detalhe == null) {
-            throw new IllegalArgumentException("Responsável não encontrado.");
+            throw new IllegalArgumentException("Responsável não encontrado para esta escola.");
         }
         return detalhe;
     }
@@ -81,8 +94,6 @@ public class ResponsavelService {
         if (dados == null) {
             throw new IllegalArgumentException("Os dados do responsável não podem ser nulos.");
         }
-
-        buscarDetalhePorEscola(escolaId, responsavelId);
 
         String nome = dados.getNome() != null ? dados.getNome().trim() : "";
         if (nome.isEmpty()) {
@@ -107,13 +118,29 @@ public class ResponsavelService {
             }
         }
 
-        Responsavel atualizado = new Responsavel();
-        atualizado.setId(responsavelId);
-        atualizado.setNome(nome);
-        atualizado.setTelefone(telefone);
-        atualizado.setCpf(atualizarCpf ? CpfCryptoService.formatar(cpfRaw) : null);
+        try (Connection conn = Conexao.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                ResponsavelDetalhe detalheAtual = responsavelDAO.buscarDetalhePorEscola(conn, escolaId, responsavelId, true);
+                if (detalheAtual == null) {
+                    throw new IllegalArgumentException("Responsável não encontrado para esta escola.");
+                }
 
-        responsavelDAO.atualizar(atualizado, atualizarCpf);
+                Responsavel atualizado = new Responsavel();
+                atualizado.setId(responsavelId);
+                atualizado.setNome(nome);
+                atualizado.setTelefone(telefone);
+                atualizado.setCpf(atualizarCpf ? CpfCryptoService.formatar(cpfRaw) : null);
+
+                responsavelDAO.atualizar(atualizado, atualizarCpf, conn);
+
+                conn.commit();
+            } catch (SQLException | RuntimeException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+
         return buscarDetalhePorEscola(escolaId, responsavelId);
     }
 

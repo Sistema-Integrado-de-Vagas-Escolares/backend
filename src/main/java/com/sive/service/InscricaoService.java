@@ -31,6 +31,11 @@ public class InscricaoService {
         this.turmaDao = new TurmaDao();
     }
 
+    public InscricaoService(InscricaoDAO inscricaoDAO, TurmaDao turmaDao) {
+        this.inscricaoDAO = inscricaoDAO;
+        this.turmaDao = turmaDao;
+    }
+
     public ListaInscricoesEscolaResponse listarPorEscola(
             UUID escolaId,
             StatusInscricao status,
@@ -56,7 +61,10 @@ public class InscricaoService {
         if (inscricao.getStatus() != StatusInscricao.EM_ESPERA) {
             throw new StatusInvalidoException("Apenas inscrições em espera podem ser chamadas.");
         }
-        inscricaoDAO.chamar(inscricaoId);
+        boolean atualizou = inscricaoDAO.chamar(inscricaoId, escolaId);
+        if (!atualizou) {
+            throw new InscricaoNaoEncontradaException("Inscrição não encontrada para a escola autenticada.");
+        }
     }
 
     public void gerenciarChamado(
@@ -78,9 +86,9 @@ public class InscricaoService {
         String acao = request.getAcao().trim().toUpperCase();
         switch (acao) {
             case "ACEITAR" -> aceitarChamado(escolaId, inscricao, request.getTurmaId());
-            case "RECUSAR", "DESISTIR" -> atualizarSimples(inscricaoId, StatusInscricao.CANCELADO, false);
-            case "REPASSAR" -> atualizarSimples(inscricaoId, StatusInscricao.EXPIRADO, false);
-            case "DESFAZER" -> atualizarSimples(inscricaoId, StatusInscricao.EM_ESPERA, true);
+            case "RECUSAR", "DESISTIR" -> atualizarSimples(escolaId, inscricaoId, StatusInscricao.CANCELADO, false);
+            case "REPASSAR" -> atualizarSimples(escolaId, inscricaoId, StatusInscricao.EXPIRADO, false);
+            case "DESFAZER" -> atualizarSimples(escolaId, inscricaoId, StatusInscricao.EM_ESPERA, true);
             default -> throw new IllegalArgumentException("Ação de chamado inválida: " + request.getAcao());
         }
     }
@@ -108,16 +116,20 @@ public class InscricaoService {
         try (Connection conn = Conexao.getConnection()) {
             conn.setAutoCommit(false);
             try {
-                boolean decrementou = inscricaoDAO.decrementarVagaTurma(conn, turmaIdDestino);
+                boolean decrementou = inscricaoDAO.decrementarVagaTurma(conn, turmaIdDestino, escolaId);
                 if (!decrementou) {
                     throw new VagaIndisponivelException("Não há vagas disponíveis na turma selecionada.");
                 }
-                inscricaoDAO.atualizarStatusChamado(
+                boolean atualizou = inscricaoDAO.atualizarStatusChamado(
                         conn,
                         inscricao.getId(),
+                        escolaId,
                         StatusInscricao.MATRICULADO,
                         turmaIdDestino,
                         false);
+                if (!atualizou) {
+                    throw new InscricaoNaoEncontradaException("Inscrição não encontrada para a escola autenticada.");
+                }
                 conn.commit();
             } catch (SQLException | RuntimeException e) {
                 conn.rollback();
@@ -127,11 +139,21 @@ public class InscricaoService {
     }
 
     private void atualizarSimples(
+            UUID escolaId,
             UUID inscricaoId,
             StatusInscricao novoStatus,
             boolean limparDataChamada) throws SQLException {
         try (Connection conn = Conexao.getConnection()) {
-            inscricaoDAO.atualizarStatusChamado(conn, inscricaoId, novoStatus, null, limparDataChamada);
+            boolean atualizou = inscricaoDAO.atualizarStatusChamado(
+                    conn,
+                    inscricaoId,
+                    escolaId,
+                    novoStatus,
+                    null,
+                    limparDataChamada);
+            if (!atualizou) {
+                throw new InscricaoNaoEncontradaException("Inscrição não encontrada para a escola autenticada.");
+            }
         }
     }
 }
