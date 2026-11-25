@@ -13,10 +13,6 @@ import com.sive.model.Escola;
 import com.sive.model.Turma;
 import com.sive.tarefa.TarefaRecalcularFila;
 
-/**
- * Camada de serviço responsável pelas regras de negócio e validações da
- * entidade Turma.
- */
 @Service
 public class TurmaService {
 

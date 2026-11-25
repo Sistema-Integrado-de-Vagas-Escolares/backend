@@ -13,9 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * DAO JDBC puro para gerenciamento da tabela inscricao_criterios.
- */
 @Repository
 public class InscricaoCriterioDAO {
 
